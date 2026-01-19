@@ -9,6 +9,16 @@ const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600"] });
 export const metadata = {
     title: "K-Sarwar – Research Lab",
     description: "K-Sarwar is a medical research lab and ecommerce platform for authentic homeopathic medicines.",
+
+    // ✅ SEO robots settings (Google snippet allow)
+    robots: {
+    index: true,
+    follow: true,
+        googleBot: {
+        index: true,
+        follow: true,
+        },
+    },
 };
 
 export default function RootLayout({ children }) {
