@@ -34,16 +34,16 @@ const Footer = () => {
         {
             title: "CONTACT",
             links: [
-                { text: "+91-212-456-7890", path: '/', icon: PhoneIcon },
-                { text: "ksarwar@support.com", path: '/', icon: MailIcon},
-                { text: "Sahrsa Bihar, 852106", path: '/', icon: MapPinIcon }
+                { text: "+91-735 232 6331", path: '/', icon: PhoneIcon },
+                { text: "contact@ksarwar.in", path: '/', icon: MailIcon},
+                { text: "Sitanabad Sahrsa Bihar, 852106", path: '/', icon: MapPinIcon }
             ]
         }
     ];
 
     const socialIcons = [
-        { icon: FacebookIcon, link: "https://www.facebook.com" },
-        { icon: InstagramIcon, link: "https://www.instagram.com" },
+        { icon: FacebookIcon, link: "https://www.facebook.com/share/1EsPwxUzaf/" },
+        { icon: InstagramIcon, link: "https://www.instagram.com/k_sarwar_?igsh=YmRneDI5d3o5Nnl5" },
         { icon: TwitterIcon, link: "https://twitter.com" },
         { icon: LinkedinIcon, link: "https://www.linkedin.com" },
     ]
@@ -102,7 +102,7 @@ const Footer = () => {
                     </div>
                 </div>
                 <p className="py-4 text-sm text-slate-500">
-                    Copyright 2025 © K-SARWAR All Right Reserved.
+                    Copyright 2026 © K-SARWAR All Right Reserved.
                 </p>
             </div>
         </footer>
