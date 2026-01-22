@@ -24,6 +24,9 @@ import Klogo from "./Klogo.jpeg"
 import KlogoFinalB from "./KlogoFinalB.png"
 import KsShampoo from "./KsShampoo.png"
 
+import { Truck, RotateCcw, Headphones, BadgeCheck, FlaskConical, ShieldCheck } from "lucide-react";
+
+
 export const assets = {
     upload_area, hero_model_img,
     hero_product_img1, hero_product_img2, gs_logo,
@@ -253,6 +256,31 @@ export const ourSpecsData = [
     { title: "7 Days easy Return", description: "Change your mind? No worries. Return any item within 7 days.", icon: ClockFadingIcon, accent: '#FF8904' },
     { title: "24/7 Customer Support", description: "We're here for you. Get expert help with our customer support.", icon: HeadsetIcon, accent: '#A684FF' }
 ]
+
+
+export const aboutWhyChooseData = [
+  {
+    title: "Quality Assurance",
+    description:
+      "Each product is prepared and tested with strict quality checks to ensure safety and authenticity.",
+    icon: BadgeCheck,
+    accent: "#22c55e", // green
+  },
+  {
+    title: "Research Based",
+    description:
+      "We combine traditional homeopathy with research-driven formulation for reliable results.",
+    icon: FlaskConical,
+    accent: "#f97316", // orange
+  },
+  {
+    title: "Customer Support",
+    description:
+      "Our team is always available to assist you with guidance, support and order queries.",
+    icon: Headphones,
+    accent: "#8b5cf6", // purple
+  },
+];
 
 export const addressDummyData = {
     id: "addr_1",

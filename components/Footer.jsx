@@ -26,6 +26,7 @@ const Footer = () => {
             title: "WEBSITE?",
             links: [
                 { text: "Home", path: '/', icon: null },
+                { text: "About Us", path: "/about", icon: null },
                 { text: "Privacy Policy", path: '/', icon: null },
                 { text: "Become Plus Member", path: '/pricing', icon: null },
                 { text: "Become a Distributor", path: '/create-store', icon: null },
