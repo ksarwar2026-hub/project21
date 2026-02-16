@@ -1,10 +1,12 @@
 'use client'
+import { useUser, UserButton} from "@clerk/nextjs"
 import Link from "next/link"
 import Image from "next/image"
 import { assets } from "@/assets/assets"
 
 const StoreNavbar = () => {
 
+    const {user} = useUser()
     return (
         <div className="flex items-center justify-between px-12 py-3 border-b border-slate-200 bg-white">
 
@@ -46,6 +48,7 @@ const StoreNavbar = () => {
                 <p className="text-sm text-slate-600">
                     Hi, Malik
                 </p>
+                <UserButton />
             </div>
 
         </div>
