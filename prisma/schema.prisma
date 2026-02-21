@@ -42,6 +42,21 @@ model Product {
     store      Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
     orderItems OrderItem[]
     rating     Rating[]
+    faqs       ProductFAQ[]   // ✅ Added
+}
+
+model ProductFAQ {
+    id        String   @id @default(cuid())
+    question  String
+    answer    String
+    productId String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+    @@index([productId])
 }
 
 enum OrderStatus {
