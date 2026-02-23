@@ -168,7 +168,6 @@
 
 //-----------------this is temperory to avoid stripe gatway when you come back just remove this and
 //-----------------uncomment upper code simple 
-
 import prisma from "@/lib/prisma";
 import { getAuth } from "@clerk/nextjs/server";
 import { PaymentMethod } from "@prisma/client";
@@ -198,7 +197,7 @@ export async function POST(request) {
       );
     }
 
-    // 🚫 Stripe temporarily disabled
+    // ❌ Stripe disabled
     if (paymentMethod === "STRIPE") {
       return NextResponse.json(
         { error: "Stripe payment is currently disabled" },
@@ -221,7 +220,7 @@ export async function POST(request) {
       }
     }
 
-    // Check if coupon is applicable for new users
+    // New user coupon check
     if (couponCode && coupon.forNewUser) {
       const userorders = await prisma.order.findMany({
         where: { userId },
@@ -237,7 +236,6 @@ export async function POST(request) {
 
     const isPlusMember = has({ plan: "plus" });
 
-    // Check if coupon is applicable for members
     if (couponCode && coupon.forMember) {
       if (!isPlusMember) {
         return NextResponse.json(
@@ -247,7 +245,7 @@ export async function POST(request) {
       }
     }
 
-    // Group orders by storeId
+    // 🔥 Group by store
     const ordersByStore = new Map();
 
     for (const item of items) {
@@ -272,7 +270,6 @@ export async function POST(request) {
     let fullAmount = 0;
     let isShippingFeeAdded = false;
 
-    // Create orders for each store
     for (const [storeId, sellerItems] of ordersByStore.entries()) {
       let total = sellerItems.reduce(
         (acc, item) => acc + item.price * item.quantity,
@@ -298,6 +295,7 @@ export async function POST(request) {
           addressId,
           total,
           paymentMethod,
+          isPaid: false, // 🔥 important
           isCouponUsed: coupon ? true : false,
           coupon: coupon ? coupon : {},
           orderItems: {
@@ -313,16 +311,11 @@ export async function POST(request) {
       orderIds.push(order.id);
     }
 
-    // Clear cart
-    await prisma.user.update({
-      where: { id: userId },
-      data: { cart: {} },
+    return NextResponse.json({
+      orderIds,
+      totalAmount: fullAmount,
     });
 
-    return NextResponse.json({
-      message: "Orders Placed Successfully",
-      orderIds,
-    });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
@@ -332,7 +325,8 @@ export async function POST(request) {
   }
 }
 
-// GET all orders
+
+// ✅ GET Orders (Razorpay compatible)
 export async function GET(request) {
   try {
     const { userId } = getAuth(request);
@@ -351,7 +345,7 @@ export async function GET(request) {
           { paymentMethod: PaymentMethod.COD },
           {
             AND: [
-              { paymentMethod: PaymentMethod.STRIPE },
+              { paymentMethod: PaymentMethod.RAZORPAY },
               { isPaid: true },
             ],
           },
@@ -365,6 +359,7 @@ export async function GET(request) {
     });
 
     return NextResponse.json({ orders });
+
   } catch (error) {
     console.error(error);
     return NextResponse.json(

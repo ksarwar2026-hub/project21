@@ -3,6 +3,7 @@ import { Toaster } from "react-hot-toast";
 import StoreProvider from "@/app/StoreProvider";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
+import Script from "next/script";
 
 const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
@@ -26,6 +27,12 @@ export default function RootLayout({ children }) {
         <ClerkProvider>
             <html lang="en">
                 <body className={`${outfit.className} antialiased`}>
+
+                    {/* ✅ Razorpay Script */}
+                    <Script
+                        src="https://checkout.razorpay.com/v1/checkout.js"
+                        strategy="beforeInteractive"
+                    />
                     <StoreProvider>
                         <Toaster />
                         {children}

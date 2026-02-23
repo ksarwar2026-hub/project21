@@ -45,43 +45,86 @@ const OrderSummary = ({ totalPrice, items }) => {
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
+
         try {
-            if(!user){
-                return toast('Please login to place an order')
+            if (!user) {
+                return toast('Please login to place an order');
             }
-            if(!selectedAddress){
-                return toast('Please select an address')
+
+            if (!selectedAddress) {
+                return toast('Please select an address');
             }
+
             const token = await getToken();
 
             const orderData = {
                 addressId: selectedAddress.id,
                 items,
                 paymentMethod
+            };
+
+            if (coupon) {
+                orderData.couponCode = coupon.code;
             }
 
-            if(coupon){
-                orderData.couponCode = coupon.code
-            }
-           // create order
-           const {data} = await axios.post('/api/orders', orderData, {
-            headers: { Authorization: `Bearer ${token}` }
-           })
+            // ✅ Step 1: Create Order in DB
+            const { data } = await axios.post('/api/orders', orderData, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
-           if(paymentMethod === 'STRIPE'){
-            window.location.href = data.session.url;
-           }else{
-            toast.success(data.message)
-            router.push('/orders')
-            dispatch(fetchCart({getToken}))
-           }
+            // ===============================
+            // 🔥 RAZORPAY FLOW STARTS HERE
+            // ===============================
+
+            if (paymentMethod === 'RAZORPAY') {
+
+                // Step 2: Create Razorpay Order
+                const razorRes = await axios.post('/api/payment/create-order', {
+                    amount: data.totalAmount
+                });
+
+                const razorOrder = razorRes.data;
+
+                const options = {
+                    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                    amount: razorOrder.amount,
+                    currency: razorOrder.currency,
+                    name: "K-SARWAR",
+                    description: "Order Payment",
+                    order_id: razorOrder.id,
+                    handler: async function (response) {
+
+                        // Step 3: Verify Payment
+                        await axios.post('/api/payment/verify', {
+                            ...response,
+                             orderIds: data.orderIds 
+                        }, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+
+                        toast.success("Payment Successful 🎉");
+                        router.push('/orders');
+                        dispatch(fetchCart({ getToken }));
+                    },
+                    theme: {
+                        color: "#000000",
+                    },
+                };
+
+                const razor = new window.Razorpay(options);
+                razor.open();
+
+            } else {
+                // COD
+                toast.success(data.message);
+                router.push('/orders');
+                dispatch(fetchCart({ getToken }));
+            }
 
         } catch (error) {
-            toast.error(error?.response?.data?.error || error.message)
+            toast.error(error?.response?.data?.error || error.message);
         }
-
-        
-    }
+    };
 
     return (
         <div className='w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-sm rounded-xl p-7'>
@@ -92,8 +135,8 @@ const OrderSummary = ({ totalPrice, items }) => {
                 <label htmlFor="COD" className='cursor-pointer'>COD</label>
             </div>
             <div className='flex gap-2 items-center mt-1'>
-                <input type="radio" id="STRIPE" name='payment' onChange={() => setPaymentMethod('STRIPE')} checked={paymentMethod === 'STRIPE'} className='accent-gray-500' />
-                <label htmlFor="STRIPE" className='cursor-pointer'>Stripe Payment</label>
+                <input type="radio" id="RAZORPAY" name='payment' onChange={() => setPaymentMethod('RAZORPAY')} checked={paymentMethod === 'RAZORPAY'} className='accent-gray-500' />
+                <label htmlFor="RAZORPAY" className='cursor-pointer'>Razorpay Payment</label>
             </div>
             <div className='my-4 py-4 border-y border-slate-200 text-slate-400'>
                 <p>Address</p>
@@ -167,3 +210,5 @@ const OrderSummary = ({ totalPrice, items }) => {
 }
 
 export default OrderSummary
+
+

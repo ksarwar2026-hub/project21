@@ -69,6 +69,7 @@ enum OrderStatus {
 enum PaymentMethod {
     COD
     STRIPE
+    RAZORPAY
 }
 
 // Required for creating an Order: total, userId, storeId, addressId, isPaid, paymentMethod, isCouponUsed, coupon (JSON), orderItems (nested)
@@ -81,6 +82,8 @@ model Order {
     addressId     String
     isPaid        Boolean       @default(false)
     paymentMethod PaymentMethod
+    razorpayOrderId   String?   // ✅ add this
+    razorpayPaymentId String?   // ✅ add this
     createdAt     DateTime      @default(now())
     updatedAt     DateTime      @updatedAt
     isCouponUsed  Boolean       @default(false)
