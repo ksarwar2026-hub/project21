@@ -24,6 +24,9 @@ import Klogo from "./Klogo.jpeg"
 import KlogoFinalB from "./KlogoFinalB.png"
 import KsShampoo from "./KsShampoo.png"
 import Favicon from "./favicon.png"
+import HeroBannerMob from "./HeroBannerMob.jpeg"
+import HeroBannerPC from "./HeroBannerPC.jpeg"
+
 
 import { Truck, RotateCcw, Headphones, BadgeCheck, FlaskConical, ShieldCheck } from "lucide-react";
 
@@ -33,7 +36,7 @@ export const assets = {
     hero_product_img1, hero_product_img2, gs_logo,
     product_img1, product_img2, product_img3, product_img4, product_img5, product_img6,
     product_img7, product_img8, product_img9, product_img10, product_img11, product_img12, Klogo, KlogoFinalB, Favicon,
-    KsShampoo,
+    KsShampoo,HeroBannerMob,HeroBannerPC,
 }
 
 export const categories = ["Hair Care", "skin care", "Hair fall", "aloo", "khaooge", "hello malik"];
