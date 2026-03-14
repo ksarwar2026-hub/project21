@@ -67,14 +67,10 @@ const OrderSummary = ({ totalPrice, items }) => {
                 orderData.couponCode = coupon.code;
             }
 
-            // ✅ Step 1: Create Order in DB
+            // Step 1: Create Order in DB
             const { data } = await axios.post('/api/orders', orderData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-
-            // ===============================
-            // 🔥 RAZORPAY FLOW STARTS HERE
-            // ===============================
 
             if (paymentMethod === 'RAZORPAY') {
 
@@ -84,6 +80,7 @@ const OrderSummary = ({ totalPrice, items }) => {
                 });
 
                 const razorOrder = razorRes.data;
+                let paymentDone = false;
 
                 const options = {
                     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -92,20 +89,42 @@ const OrderSummary = ({ totalPrice, items }) => {
                     name: "K-SARWAR",
                     description: "Order Payment",
                     order_id: razorOrder.id,
+
                     handler: async function (response) {
+                        paymentDone = true;
 
                         // Step 3: Verify Payment
+                        // Fresh token — purana token Razorpay modal mein expire ho sakta hai
+                        const freshToken = await getToken();
                         await axios.post('/api/payment/verify', {
                             ...response,
                              orderIds: data.orderIds 
                         }, {
-                            headers: { Authorization: `Bearer ${token}` }
+                            headers: { Authorization: `Bearer ${freshToken}` }
                         });
 
                         toast.success("Payment Successful 🎉");
                         router.push('/orders');
                         dispatch(fetchCart({ getToken }));
                     },
+
+                    modal: {
+                        ondismiss: async function () {
+                            if (paymentDone) return;
+
+                            try {
+                                await axios.post('/api/orders/cancel', {
+                                    orderIds: data.orderIds
+                                }, {
+                                    headers: { Authorization: `Bearer ${token}` }
+                                });
+                                toast.error('Payment cancelled. Order removed.');
+                            } catch (err) {
+                                console.error('Order cleanup failed:', err);
+                            }
+                        }
+                    },
+
                     theme: {
                         color: "#000000",
                     },
@@ -127,8 +146,14 @@ const OrderSummary = ({ totalPrice, items }) => {
     };
 
     return (
-        <div className='w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-sm rounded-xl p-7'>
+        <div className='w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-base lg:text-sm rounded-xl p-7'>
             <h2 className='text-xl font-medium text-slate-600'>Payment Summary</h2>
+
+            {/* Razorpay under development notice */}
+            <p className='text-red-500 text-xs mt-3 font-medium'>
+                Online payment via Razorpay is currently under development. Please select Cash on Delivery.
+            </p>
+
             <p className='text-slate-400 text-xs my-4'>Payment Method</p>
             <div className='flex gap-2 items-center'>
                 <input type="radio" id="COD" onChange={() => setPaymentMethod('COD')} checked={paymentMethod === 'COD'} className='accent-gray-500' />
@@ -142,9 +167,15 @@ const OrderSummary = ({ totalPrice, items }) => {
                 <p>Address</p>
                 {
                     selectedAddress ? (
-                        <div className='flex gap-2 items-center'>
-                            <p>{selectedAddress.name}, {selectedAddress.city}, {selectedAddress.state}, {selectedAddress.zip}</p>
-                            <SquarePenIcon onClick={() => setSelectedAddress(null)} className='cursor-pointer' size={18} />
+                        <div className='flex gap-2 items-start mt-1'>
+                            <div className='text-xs leading-5'>
+                                <p className='font-medium text-slate-600'>{selectedAddress.name}</p>
+                                <p>{selectedAddress.street}</p>
+                                <p>{selectedAddress.city}, {selectedAddress.state} – {selectedAddress.zip}</p>
+                                <p>{selectedAddress.country}</p>
+                                <p>Phone: {selectedAddress.phone}</p>
+                            </div>
+                            <SquarePenIcon onClick={() => setSelectedAddress(null)} className='cursor-pointer shrink-0 mt-1' size={16} />
                         </div>
                     ) : (
                         <div>
@@ -154,7 +185,7 @@ const OrderSummary = ({ totalPrice, items }) => {
                                         <option value="">Select Address</option>
                                         {
                                             addressList.map((address, index) => (
-                                                <option key={index} value={index}>{address.name}, {address.city}, {address.state}, {address.zip}</option>
+                                                <option key={index} value={index}>{address.name}, {address.street}, {address.city}, {address.state} – {address.zip}</option>
                                             ))
                                         }
                                     </select>
@@ -170,7 +201,7 @@ const OrderSummary = ({ totalPrice, items }) => {
                     <div className='flex flex-col gap-1 text-slate-400'>
                         <p>Subtotal:</p>
                         <p>Shipping:</p>
-                        {coupon && <p>Coupon:</p>}
+                        {coupon && <p>Coupon ({coupon.discount}% off):</p>}
                     </div>
                     <div className='flex flex-col gap-1 font-medium text-right'>
                         <p>{currency}{totalPrice.toLocaleString()}</p>
@@ -199,7 +230,7 @@ const OrderSummary = ({ totalPrice, items }) => {
                     <Protect plan={'plus'} fallback={`${currency}${coupon ? (totalPrice + 5 - (coupon.discount / 100 * totalPrice)).toFixed(2) : (totalPrice + 5).toLocaleString()}`}>  
                     {currency}{coupon ? (totalPrice - (coupon.discount / 100 * totalPrice)).toFixed(2) : totalPrice.toLocaleString()}
                     </Protect>
-                    </p>
+                </p>
             </div>
             <button onClick={e => toast.promise(handlePlaceOrder(e), { loading: 'placing Order...' })} className='w-full bg-slate-700 text-white py-2.5 rounded hover:bg-slate-900 active:scale-95 transition-all'>Place Order</button>
 
@@ -210,5 +241,3 @@ const OrderSummary = ({ totalPrice, items }) => {
 }
 
 export default OrderSummary
-
-
