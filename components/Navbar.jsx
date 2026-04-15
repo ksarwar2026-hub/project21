@@ -17,11 +17,14 @@ import { useUser, useClerk, UserButton, Protect } from "@clerk/nextjs";
 import Image from "next/image";
 import { assets } from "@/assets/assets";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
+import { useAnalytics } from "@/lib/posthog/useAnalytics";
+import { POSTHOG_EVENTS } from "@/lib/posthog/config";
 
 const Navbar = () => {
   const { user } = useUser();
   const { openSignIn } = useClerk();
   const router = useRouter();
+  const { capture } = useAnalytics();
 
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const cartCount = useSelector((state) => state.cart.total);
@@ -67,7 +70,13 @@ const Navbar = () => {
 
             {!user ? (
               <button
-                onClick={openSignIn}
+                onClick={() => {
+                  capture(POSTHOG_EVENTS.SIGN_IN_CTA_CLICKED, {
+                    action: "sign_in_cta_clicked",
+                    nav_type: "desktop",
+                  });
+                  openSignIn();
+                }}
                 className="px-8 py-2 bg-indigo-500 hover:bg-indigo-600 transition text-white rounded-full"
               >
                 Login
@@ -106,7 +115,13 @@ const Navbar = () => {
 
             {!user ? (
               <button
-                onClick={openSignIn}
+                onClick={() => {
+                  capture(POSTHOG_EVENTS.SIGN_IN_CTA_CLICKED, {
+                    action: "sign_in_cta_clicked",
+                    nav_type: "mobile",
+                  });
+                  openSignIn();
+                }}
                 className="px-6 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-sm transition text-white rounded-full"
               >
                 Login

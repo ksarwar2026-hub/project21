@@ -52,7 +52,11 @@ export default async function Shop({ searchParams }) {
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 xl:gap-8 mx-auto mb-32">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              eventSource={search ? "search_results" : "shop_listing"}
+            />
           ))}
         </div>
 

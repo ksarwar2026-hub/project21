@@ -8,6 +8,9 @@ import Image from "next/image";
 import Counter from "./Counter";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import { useEffect, useRef } from "react";
+import { useAnalytics } from "@/lib/posthog/useAnalytics";
+import { POSTHOG_EVENTS } from "@/lib/posthog/config";
 
 const ProductDetails = ({ product }) => {
 
@@ -16,6 +19,8 @@ const ProductDetails = ({ product }) => {
 
     const cart = useSelector(state => state.cart.cartItems);
     const dispatch = useDispatch();
+    const { capture } = useAnalytics();
+    const trackedViewRef = useRef(false);
 
     const router = useRouter()
 
@@ -23,8 +28,29 @@ const ProductDetails = ({ product }) => {
 
     const addToCartHandler = () => {
         if (!product.inStock) return toast('This product is currently out of stock')
+        capture(POSTHOG_EVENTS.ADD_TO_CART_CLICKED, {
+            product_id: product.id,
+            product_name: product.name,
+            category: product.category,
+            price: product.price,
+            source: 'product_page',
+        })
         dispatch(addToCart({ productId }))
     }
+
+    useEffect(() => {
+        if (trackedViewRef.current) return
+        trackedViewRef.current = true
+        capture(POSTHOG_EVENTS.PRODUCT_VIEWED, {
+            product_id: product.id,
+            product_name: product.name,
+            category: product.category,
+            price: product.price,
+            in_stock: product.inStock,
+            store_id: product.storeId,
+            store_name: product.store?.name || '',
+        })
+    }, [capture, product])
 
     const averageRating =
         product.rating.length > 0

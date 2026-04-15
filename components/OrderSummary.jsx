@@ -7,12 +7,15 @@ import { useRouter } from 'next/navigation';
 import {Protect, useAuth, useUser} from '@clerk/nextjs'
 import axios from 'axios';
 import { fetchCart } from '@/lib/features/cart/cartSlice';
+import { useAnalytics } from '@/lib/posthog/useAnalytics';
+import { POSTHOG_EVENTS } from '@/lib/posthog/config';
 
 const OrderSummary = ({ totalPrice, items }) => {
 
     const {user} = useUser()
     const { getToken } = useAuth()
     const dispatch = useDispatch()
+    const { capture } = useAnalytics()
     const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$';
 
     const router = useRouter();
@@ -36,6 +39,10 @@ const OrderSummary = ({ totalPrice, items }) => {
                 headers: { Authorization: `Bearer ${token}` }
             })
             setCoupon(data.coupon)
+            capture(POSTHOG_EVENTS.COUPON_APPLIED, {
+                coupon_code: data.coupon.code,
+                discount: data.coupon.discount,
+            })
             toast.success('Coupon Applied')
         } catch (error) {
             toast.error(error?.response?.data?.error || error.message)
@@ -66,6 +73,13 @@ const OrderSummary = ({ totalPrice, items }) => {
             if (coupon) {
                 orderData.couponCode = coupon.code;
             }
+
+            capture(POSTHOG_EVENTS.CHECKOUT_STARTED, {
+                payment_method: paymentMethod,
+                items_count: items.length,
+                total_price: totalPrice,
+                coupon_code: coupon?.code || '',
+            })
 
             // Step 1: Create Order in DB
             const { data } = await axios.post('/api/orders', orderData, {

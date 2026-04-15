@@ -18,7 +18,12 @@ const LatestProducts = ({ products = [] }) => {
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
           .slice(0, displayQuantity)
           .map((product) => (
-            <ProductCard key={product.id} product={product} truncateName={true} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              truncateName={true}
+              eventSource="homepage_latest"
+            />
           ))}
       </div>
     </div>

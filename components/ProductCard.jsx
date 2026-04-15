@@ -6,12 +6,15 @@ import { useDispatch } from 'react-redux'
 import { addToCart } from '@/lib/features/cart/cartSlice'
 import toast from 'react-hot-toast'
 import { useUser } from '@clerk/nextjs'
+import { useAnalytics } from '@/lib/posthog/useAnalytics'
+import { POSTHOG_EVENTS } from '@/lib/posthog/config'
 
-const ProductCard = ({ product, truncateName = true }) => {
+const ProductCard = ({ product, truncateName = true, eventSource = 'product_grid' }) => {
 
 const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'
 const dispatch = useDispatch()
 const { user } = useUser()
+const { capture } = useAnalytics()
 
 const totalRatings = product.rating.length
 const avgRating = totalRatings > 0
@@ -24,6 +27,13 @@ const handleAddToCart = (e) => {
     e.stopPropagation()
     if (!product.inStock) return toast('Currently out of stock')
     if (!user) return toast('Please login to add to cart')
+    capture(POSTHOG_EVENTS.ADD_TO_CART_CLICKED, {
+        product_id: product.id,
+        product_name: product.name,
+        category: product.category,
+        price: product.price,
+        source: `${eventSource}_card`,
+    })
     dispatch(addToCart({ productId: product.id }))
     toast.success('Added to cart')
 }
@@ -32,6 +42,14 @@ return (
 
     <Link
         href={`/product/${product.id}`}
+        onClick={() => capture(POSTHOG_EVENTS.PRODUCT_CARD_CLICKED, {
+            product_id: product.id,
+            product_name: product.name,
+            category: product.category,
+            price: product.price,
+            in_stock: product.inStock,
+            source: eventSource,
+        })}
         className='group block w-full border border-slate-200/70 rounded-xl p-3 bg-slate-50 transition-all duration-300 hover:border-slate-300 hover:shadow-sm'
     >
 

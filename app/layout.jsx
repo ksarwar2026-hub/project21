@@ -1,9 +1,11 @@
 import { Outfit } from "next/font/google";
+import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { ClerkProvider } from "@clerk/nextjs";
 import Script from "next/script";
 import StoreProvider from "@/app/StoreProvider";
 import { absoluteUrl, getBaseUrl, siteConfig } from "@/lib/site";
+import PostHogBoot from "@/components/analytics/PostHogBoot";
 import "./globals.css";
 
 const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -52,6 +54,9 @@ export default function RootLayout({ children }) {
           />
           <StoreProvider>
             <Toaster />
+            <Suspense fallback={null}>
+              <PostHogBoot />
+            </Suspense>
             {children}
           </StoreProvider>
         </body>

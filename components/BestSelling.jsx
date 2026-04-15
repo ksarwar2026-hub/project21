@@ -18,7 +18,12 @@ const BestSelling = ({ products = [] }) => {
           .sort((a, b) => b.rating.length - a.rating.length)
           .slice(0, displayQuantity)
           .map((product) => (
-            <ProductCard key={product.id} product={product} truncateName={true} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              truncateName={true}
+              eventSource="homepage_best_selling"
+            />
           ))}
       </div>
     </div>

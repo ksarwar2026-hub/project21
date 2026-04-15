@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { getProductSuggestions } from "@/lib/search/products";
+import { useAnalytics } from "@/lib/posthog/useAnalytics";
+import { POSTHOG_EVENTS } from "@/lib/posthog/config";
 
 const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "$";
 
@@ -18,6 +20,7 @@ const SearchAutocomplete = ({
 }) => {
   const router = useRouter();
   const products = useSelector((state) => state.product.list);
+  const { capture } = useAnalytics();
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -52,6 +55,11 @@ const SearchAutocomplete = ({
     }
 
     closeSearch();
+    capture(POSTHOG_EVENTS.SEARCH_SUBMITTED, {
+      query: trimmedSearch,
+      suggestion_count: suggestions.length,
+      source: isMobile ? "mobile_search" : "desktop_search",
+    });
     router.push(`/shop?search=${encodeURIComponent(trimmedSearch)}`);
   };
 
@@ -86,7 +94,15 @@ const SearchAutocomplete = ({
                   <Link
                     key={product.id}
                     href={`/product/${product.id}`}
-                    onClick={closeSearch}
+                    onClick={() => {
+                      capture(POSTHOG_EVENTS.SEARCH_SUGGESTION_CLICKED, {
+                        query: trimmedSearch,
+                        product_id: product.id,
+                        product_name: product.name,
+                        category: product.category,
+                      });
+                      closeSearch();
+                    }}
                     className="flex items-center gap-3 px-3 py-2.5 transition hover:bg-slate-50"
                   >
                     <div className="relative h-14 w-14 overflow-hidden rounded-xl bg-slate-100">
@@ -118,6 +134,11 @@ const SearchAutocomplete = ({
               <button
                 type="button"
                 onClick={() => {
+                  capture(POSTHOG_EVENTS.SEARCH_SUBMITTED, {
+                    query: trimmedSearch,
+                    suggestion_count: suggestions.length,
+                    source: "see_all_results",
+                  });
                   closeSearch();
                   router.push(`/shop?search=${encodeURIComponent(trimmedSearch)}`);
                 }}

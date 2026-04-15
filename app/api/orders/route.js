@@ -2,6 +2,8 @@ import prisma from "@/lib/prisma";
 import { getAuth } from "@clerk/nextjs/server";
 import { PaymentMethod } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { captureServerEvents } from "@/lib/posthog/server";
+import { POSTHOG_EVENTS } from "@/lib/posthog/config";
 
 export async function POST(request) {
   try {
@@ -33,6 +35,11 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true },
+    });
 
     let coupon = null;
 
@@ -88,11 +95,18 @@ export async function POST(request) {
         ordersByStore.set(storeId, []);
       }
 
-      ordersByStore.get(storeId).push({ ...item, price: product.price });
+      ordersByStore.get(storeId).push({
+        ...item,
+        price: product.price,
+        name: product.name,
+        category: product.category,
+      });
     }
 
     let orderIds = [];
     let fullAmount = 0;
+
+    const analyticsEvents = [];
 
     for (const [storeId, sellerItems] of ordersByStore.entries()) {
       let total = sellerItems.reduce(
@@ -130,6 +144,44 @@ export async function POST(request) {
       });
 
       orderIds.push(order.id);
+
+      analyticsEvents.push({
+        distinctId: userId,
+        event: paymentMethod === "COD" ? POSTHOG_EVENTS.ORDER_PLACED : "order_pending_payment",
+        properties: {
+          user_id: user?.id || userId,
+          user_name: user?.name || "",
+          user_email: user?.email || "",
+          order_id: order.id,
+          store_id: storeId,
+          total,
+          payment_method: paymentMethod,
+          coupon_code: coupon?.code || "",
+          item_count: sellerItems.length,
+        },
+      });
+
+      if (paymentMethod === "COD") {
+        sellerItems.forEach((item) => {
+          analyticsEvents.push({
+            distinctId: userId,
+            event: POSTHOG_EVENTS.PRODUCT_ORDERED,
+            properties: {
+              user_id: user?.id || userId,
+              user_name: user?.name || "",
+              user_email: user?.email || "",
+              order_id: order.id,
+              store_id: storeId,
+              payment_method: paymentMethod,
+              product_id: item.id,
+              product_name: item.name || "",
+              category: item.category || "",
+              price: item.price,
+              quantity: item.quantity,
+            },
+          });
+        });
+      }
     }
 
     // COD ke liye cart clear karo
@@ -139,6 +191,8 @@ export async function POST(request) {
         data: { cart: {} },
       });
     }
+
+    await captureServerEvents(analyticsEvents);
 
     return NextResponse.json({
       orderIds,

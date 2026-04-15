@@ -89,7 +89,7 @@ export default async function StoreShop({ params }) {
         </h2>
         <div className="mt-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 xl:gap-8 mx-auto">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} eventSource="store_listing" />
           ))}
         </div>
 
