@@ -1,42 +1,67 @@
-'use client'
-import { Suspense } from "react"
-import ProductCard from "@/components/ProductCard"
-import { MoveLeftIcon } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useSelector } from "react-redux"
+import ProductCard from "@/components/ProductCard";
+import { getPublicProducts } from "@/lib/data/storefront";
+import { absoluteUrl, siteConfig } from "@/lib/site";
 
- function ShopContent() {
+export async function generateMetadata({ searchParams }) {
+  const params = await searchParams;
+  const search = params?.search?.trim();
 
-    // get query params ?search=abc
-    const searchParams = useSearchParams()
-    const search = searchParams.get('search')
-    const router = useRouter()
+  if (search) {
+    return {
+      title: `Search results for ${search}`,
+      description: `Browse products matching ${search} on ${siteConfig.name}.`,
+      alternates: {
+        canonical: absoluteUrl("/shop"),
+      },
+      robots: {
+        index: false,
+        follow: true,
+      },
+    };
+  }
 
-    const products = useSelector(state => state.product.list)
-
-    const filteredProducts = search
-        ? products.filter(product =>
-            product.name.toLowerCase().includes(search.toLowerCase())
-        )
-        : products;
-
-    return (
-        <div className="min-h-[70vh] mx-6">
-            <div className=" max-w-7xl mx-auto">
-                <h1 onClick={() => router.push('/shop')} className="text-2xl text-slate-500 my-6 flex items-center gap-2 cursor-pointer"> {search && <MoveLeftIcon size={20} />}  All <span className="text-slate-700 font-medium">Products</span></h1>
-                <div className="grid grid-cols-2 sm:flex flex-wrap gap-6 xl:gap-12 mx-auto mb-32">
-                    {filteredProducts.map((product) => <ProductCard key={product.id} product={product} />)}
-                </div>
-            </div>
-        </div>
-    )
+  return {
+    title: "Shop",
+    description: `Browse all products available on ${siteConfig.name}.`,
+    alternates: {
+      canonical: absoluteUrl("/shop"),
+    },
+  };
 }
 
+export default async function Shop({ searchParams }) {
+  const params = await searchParams;
+  const search = params?.search?.trim() || "";
+  const products = await getPublicProducts({ search });
 
-export default function Shop() {
   return (
-    <Suspense fallback={<div>Loading shop...</div>}>
-      <ShopContent />
-    </Suspense>
+    <div className="min-h-[70vh] mx-6">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl text-slate-500 my-6">
+          {search ? (
+            <>
+              Search results for{" "}
+              <span className="text-slate-700 font-medium">{search}</span>
+            </>
+          ) : (
+            <>
+              All <span className="text-slate-700 font-medium">Products</span>
+            </>
+          )}
+        </h1>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 xl:gap-8 mx-auto mb-32">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+
+        {products.length === 0 && (
+          <p className="mb-32 text-sm text-slate-500">
+            No products found for this search yet.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
