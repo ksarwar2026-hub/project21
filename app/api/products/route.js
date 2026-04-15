@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 export async function GET(request){
     try {
         let products = await prisma.product.findMany({
-            where: { inStock: true },
+            where: {},
             include: {
                 rating: {
                     select: {
@@ -19,7 +19,7 @@ export async function GET(request){
                     orderBy: { createdAt: "asc" }  // optional but clean
                 }
             },
-            orderBy: { createdAt: 'desc' }
+            orderBy: [{ inStock: 'desc' }, { createdAt: 'desc' }]
         })
 
         // remove products with store isActive false
