@@ -2,7 +2,11 @@ import prisma from "@/lib/prisma";
 import authAdmin from "@/middlewares/authAdmin";
 import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { isPostHogQueryConfigured, POSTHOG_EVENTS } from "@/lib/posthog/config";
+import {
+  getMissingPostHogQueryEnvVars,
+  isPostHogQueryConfigured,
+  POSTHOG_EVENTS,
+} from "@/lib/posthog/config";
 import { runPostHogQuery } from "@/lib/posthog/server";
 
 function toNumber(value) {
@@ -12,6 +16,33 @@ function toNumber(value) {
 function ratio(part, whole) {
   if (!whole) return 0;
   return Number(((part / whole) * 100).toFixed(1));
+}
+
+function emptyPostHogSummary({ missingEnv = [], issue = "" } = {}) {
+  return {
+    analyticsEnabled: false,
+    analyticsIssue:
+      issue ||
+      (missingEnv.length
+        ? `Missing deployment env: ${missingEnv.join(", ")}`
+        : ""),
+    analyticsMissingEnv: missingEnv,
+    summary: {
+      visitors30d: 0,
+      pageviews30d: 0,
+      logins30d: 0,
+      productViews30d: 0,
+      addToCarts30d: 0,
+      ordersPlaced30d: 0,
+      activeUsers30d: 0,
+      conversionRate: 0,
+      cartToOrderRate: 0,
+    },
+    trend: [],
+    topProducts: [],
+    topSearches: [],
+    activeUsers: [],
+  };
 }
 
 async function getDatabaseSummary() {
@@ -41,27 +72,13 @@ async function getDatabaseSummary() {
 
 async function getPostHogSummary() {
   if (!isPostHogQueryConfigured()) {
-    return {
-      analyticsEnabled: false,
-      summary: {
-        visitors30d: 0,
-        pageviews30d: 0,
-        logins30d: 0,
-        productViews30d: 0,
-        addToCarts30d: 0,
-        ordersPlaced30d: 0,
-        activeUsers30d: 0,
-        conversionRate: 0,
-        cartToOrderRate: 0,
-      },
-      trend: [],
-      topProducts: [],
-      topSearches: [],
-      activeUsers: [],
-    };
+    return emptyPostHogSummary({
+      missingEnv: getMissingPostHogQueryEnvVars(),
+    });
   }
 
-  const summaryQuery = `
+  try {
+    const summaryQuery = `
     SELECT
       countIf(event = '$pageview') AS pageviews_30d,
       uniqIf(distinct_id, event = '$pageview') AS visitors_30d,
@@ -74,7 +91,7 @@ async function getPostHogSummary() {
     WHERE timestamp >= now() - INTERVAL 30 DAY
   `;
 
-  const trendQuery = `
+    const trendQuery = `
     SELECT
       toDate(timestamp) AS date,
       countIf(event = '$pageview') AS pageviews,
@@ -88,7 +105,7 @@ async function getPostHogSummary() {
     ORDER BY date ASC
   `;
 
-  const topProductsQuery = `
+    const topProductsQuery = `
     SELECT
       properties.product_name AS product_name,
       any(properties.product_id) AS product_id,
@@ -105,7 +122,7 @@ async function getPostHogSummary() {
     LIMIT 8
   `;
 
-  const topSearchesQuery = `
+    const topSearchesQuery = `
     SELECT
       properties.query AS query,
       count() AS searches
@@ -119,7 +136,7 @@ async function getPostHogSummary() {
     LIMIT 8
   `;
 
-  const activeUsersQuery = `
+    const activeUsersQuery = `
     SELECT
       coalesce(nullIf(properties.user_name, ''), nullIf(properties.user_email, ''), properties.user_id) AS user_label,
       properties.user_email AS email,
@@ -137,8 +154,13 @@ async function getPostHogSummary() {
     LIMIT 10
   `;
 
-  const [summaryRows, trendRows, topProductsRows, topSearchRows, activeUserRows] =
-    await Promise.all([
+    const [
+      summaryRows,
+      trendRows,
+      topProductsRows,
+      topSearchRows,
+      activeUserRows,
+    ] = await Promise.all([
       runPostHogQuery(summaryQuery, "admin dashboard summary"),
       runPostHogQuery(trendQuery, "admin dashboard trends"),
       runPostHogQuery(topProductsQuery, "admin dashboard top products"),
@@ -146,58 +168,67 @@ async function getPostHogSummary() {
       runPostHogQuery(activeUsersQuery, "admin dashboard active users"),
     ]);
 
-  const summaryRow = summaryRows[0] || {};
-  const pageviews30d = toNumber(summaryRow.pageviews_30d);
-  const visitors30d = toNumber(summaryRow.visitors_30d);
-  const logins30d = toNumber(summaryRow.logins_30d);
-  const productViews30d = toNumber(summaryRow.product_views_30d);
-  const addToCarts30d = toNumber(summaryRow.add_to_carts_30d);
-  const ordersPlaced30d = toNumber(summaryRow.orders_placed_30d);
-  const activeUsers30d = toNumber(summaryRow.active_users_30d);
+    const summaryRow = summaryRows[0] || {};
+    const pageviews30d = toNumber(summaryRow.pageviews_30d);
+    const visitors30d = toNumber(summaryRow.visitors_30d);
+    const logins30d = toNumber(summaryRow.logins_30d);
+    const productViews30d = toNumber(summaryRow.product_views_30d);
+    const addToCarts30d = toNumber(summaryRow.add_to_carts_30d);
+    const ordersPlaced30d = toNumber(summaryRow.orders_placed_30d);
+    const activeUsers30d = toNumber(summaryRow.active_users_30d);
 
-  return {
-    analyticsEnabled: true,
-    summary: {
-      visitors30d,
-      pageviews30d,
-      logins30d,
-      productViews30d,
-      addToCarts30d,
-      ordersPlaced30d,
-      activeUsers30d,
-      conversionRate: ratio(ordersPlaced30d, productViews30d),
-      cartToOrderRate: ratio(ordersPlaced30d, addToCarts30d),
-    },
-    trend: trendRows.map((row) => ({
-      date: row.date,
-      pageviews: toNumber(row.pageviews),
-      productViews: toNumber(row.product_views),
-      addToCarts: toNumber(row.add_to_carts),
-      orders: toNumber(row.orders),
-      logins: toNumber(row.logins),
-    })),
-    topProducts: topProductsRows.map((row) => ({
-      productName: row.product_name,
-      productId: row.product_id,
-      views: toNumber(row.views),
-      carts: toNumber(row.carts),
-      orders: toNumber(row.orders),
-      conversionRate: ratio(toNumber(row.orders), toNumber(row.views)),
-    })),
-    topSearches: topSearchRows.map((row) => ({
-      query: row.query,
-      searches: toNumber(row.searches),
-    })),
-    activeUsers: activeUserRows.map((row) => ({
-      label: row.user_label,
-      email: row.email,
-      userId: row.user_id,
-      views: toNumber(row.views),
-      carts: toNumber(row.carts),
-      orders: toNumber(row.orders),
-      lastSeen: row.last_seen,
-    })),
-  };
+    return {
+      analyticsEnabled: true,
+      analyticsIssue: "",
+      analyticsMissingEnv: [],
+      summary: {
+        visitors30d,
+        pageviews30d,
+        logins30d,
+        productViews30d,
+        addToCarts30d,
+        ordersPlaced30d,
+        activeUsers30d,
+        conversionRate: ratio(ordersPlaced30d, productViews30d),
+        cartToOrderRate: ratio(ordersPlaced30d, addToCarts30d),
+      },
+      trend: trendRows.map((row) => ({
+        date: row.date,
+        pageviews: toNumber(row.pageviews),
+        productViews: toNumber(row.product_views),
+        addToCarts: toNumber(row.add_to_carts),
+        orders: toNumber(row.orders),
+        logins: toNumber(row.logins),
+      })),
+      topProducts: topProductsRows.map((row) => ({
+        productName: row.product_name,
+        productId: row.product_id,
+        views: toNumber(row.views),
+        carts: toNumber(row.carts),
+        orders: toNumber(row.orders),
+        conversionRate: ratio(toNumber(row.orders), toNumber(row.views)),
+      })),
+      topSearches: topSearchRows.map((row) => ({
+        query: row.query,
+        searches: toNumber(row.searches),
+      })),
+      activeUsers: activeUserRows.map((row) => ({
+        label: row.user_label,
+        email: row.email,
+        userId: row.user_id,
+        views: toNumber(row.views),
+        carts: toNumber(row.carts),
+        orders: toNumber(row.orders),
+        lastSeen: row.last_seen,
+      })),
+    };
+  } catch (error) {
+    console.error("POSTHOG_DASHBOARD_ERROR", error);
+    return emptyPostHogSummary({
+      issue:
+        "PostHog query failed. Check POSTHOG_PERSONAL_API_KEY, POSTHOG_PROJECT_ID, and POSTHOG_APP_HOST in deployment env.",
+    });
+  }
 }
 
 export async function GET(request) {
@@ -218,6 +249,8 @@ export async function GET(request) {
       dashboardData: {
         ...databaseSummary,
         analyticsEnabled: posthogSummary.analyticsEnabled,
+        analyticsIssue: posthogSummary.analyticsIssue,
+        analyticsMissingEnv: posthogSummary.analyticsMissingEnv,
         analyticsSummary: posthogSummary.summary,
         engagementTrend: posthogSummary.trend,
         topProducts: posthogSummary.topProducts,

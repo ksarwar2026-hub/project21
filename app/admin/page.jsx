@@ -87,6 +87,8 @@ export default function AdminDashboard() {
     orders: 0,
     stores: 0,
     analyticsEnabled: false,
+    analyticsIssue: "",
+    analyticsMissingEnv: [],
     analyticsSummary: {},
     engagementTrend: [],
     topProducts: [],
@@ -192,7 +194,10 @@ export default function AdminDashboard() {
             {dashboardData.analyticsEnabled ? (
               <span className="font-medium text-emerald-700">PostHog connected and reporting live event data</span>
             ) : (
-              <span className="font-medium text-amber-700">Traffic tracking will appear here after PostHog env vars are active</span>
+              <span className="font-medium text-amber-700">
+                {dashboardData.analyticsIssue ||
+                  "Traffic tracking will appear here after PostHog env vars are active"}
+              </span>
             )}
           </div>
         </div>
