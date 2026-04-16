@@ -3,7 +3,9 @@ import authAdmin from "@/middlewares/authAdmin";
 import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import {
+  getMissingPostHogClientEnvVars,
   getMissingPostHogQueryEnvVars,
+  isPostHogClientConfigured,
   isPostHogQueryConfigured,
   POSTHOG_EVENTS,
 } from "@/lib/posthog/config";
@@ -248,6 +250,11 @@ export async function GET(request) {
     return NextResponse.json({
       dashboardData: {
         ...databaseSummary,
+        trackingEnabled: isPostHogClientConfigured(),
+        trackingIssue: isPostHogClientConfigured()
+          ? ""
+          : "Browser tracking is disabled. Add NEXT_PUBLIC_POSTHOG_KEY to deployment env and redeploy.",
+        trackingMissingEnv: getMissingPostHogClientEnvVars(),
         analyticsEnabled: posthogSummary.analyticsEnabled,
         analyticsIssue: posthogSummary.analyticsIssue,
         analyticsMissingEnv: posthogSummary.analyticsMissingEnv,

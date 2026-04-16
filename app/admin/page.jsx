@@ -86,6 +86,9 @@ export default function AdminDashboard() {
     revenue: 0,
     orders: 0,
     stores: 0,
+    trackingEnabled: false,
+    trackingIssue: "",
+    trackingMissingEnv: [],
     analyticsEnabled: false,
     analyticsIssue: "",
     analyticsMissingEnv: [],
@@ -190,15 +193,56 @@ export default function AdminDashboard() {
               and how interest turns into carts and orders.
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm shadow-sm">
-            {dashboardData.analyticsEnabled ? (
-              <span className="font-medium text-emerald-700">PostHog connected and reporting live event data</span>
-            ) : (
-              <span className="font-medium text-amber-700">
-                {dashboardData.analyticsIssue ||
-                  "Traffic tracking will appear here after PostHog env vars are active"}
-              </span>
-            )}
+          <div className="min-w-[320px] rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm shadow-sm">
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Browser Tracking
+                </p>
+                {dashboardData.trackingEnabled ? (
+                  <p className="mt-1 font-medium text-emerald-700">
+                    Live storefront events can be captured from the browser.
+                  </p>
+                ) : (
+                  <div className="mt-1 space-y-1">
+                    <p className="font-medium text-amber-700">
+                      {dashboardData.trackingIssue ||
+                        "Browser tracking is waiting for PostHog public env vars."}
+                    </p>
+                    {dashboardData.trackingMissingEnv?.length > 0 && (
+                      <p className="text-xs text-slate-500">
+                        Missing: {dashboardData.trackingMissingEnv.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="h-px bg-slate-200" />
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Dashboard Queries
+                </p>
+                {dashboardData.analyticsEnabled ? (
+                  <p className="mt-1 font-medium text-emerald-700">
+                    Admin analytics queries are connected and returning PostHog data.
+                  </p>
+                ) : (
+                  <div className="mt-1 space-y-1">
+                    <p className="font-medium text-amber-700">
+                      {dashboardData.analyticsIssue ||
+                        "Traffic reporting will appear here after PostHog server env vars are active."}
+                    </p>
+                    {dashboardData.analyticsMissingEnv?.length > 0 && (
+                      <p className="text-xs text-slate-500">
+                        Missing: {dashboardData.analyticsMissingEnv.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
