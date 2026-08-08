@@ -1,5 +1,5 @@
 {
-  "name": "gocart",
+  "name": "ksarwar",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -20,6 +20,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "axios": "^1.13.5",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.43.0",
     "imagekit": "^6.0.0",
     "inngest": "^3.49.3",
     "lucide-react": "^0.525.0",

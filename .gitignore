@@ -17,6 +17,12 @@
 /.next/
 /out/
 
+# android + spring mobile workspace
+/androidSpringApp/**/.gradle/
+/androidSpringApp/**/.kotlin/
+/androidSpringApp/**/build/
+/androidSpringApp/android-app/local.properties
+
 # production
 /build
 

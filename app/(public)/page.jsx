@@ -1,20 +1,18 @@
-import BestSelling from "@/components/BestSelling";
-import Hero from "@/components/Hero";
-import Newsletter from "@/components/Newsletter";
-import OurSpecs from "@/components/OurSpec";
-import LatestProducts from "@/components/LatestProducts";
+import { Suspense } from "react";
+import HomepageExperience from "@/components/HomepageExperience";
+import HomepageSkeleton from "@/components/HomepageSkeleton";
 import { getPublicProducts } from "@/lib/data/storefront";
 
-export default async function Home() {
+async function HomepageContent() {
   const products = await getPublicProducts({ limit: 16 });
 
+  return <HomepageExperience products={products} />;
+}
+
+export default function Home() {
   return (
-    <div>
-      <Hero />
-      <LatestProducts products={products} />
-      <BestSelling products={products} />
-      <OurSpecs />
-      <Newsletter />
-    </div>
+    <Suspense fallback={<HomepageSkeleton />}>
+      <HomepageContent />
+    </Suspense>
   );
 }

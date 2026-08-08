@@ -1,31 +1,62 @@
 'use client'
-import React from 'react'
-import toast from 'react-hot-toast';
+
+import React from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
+
+const announcementSlides = [
+  "Free shipping above Rs. 499",
+  "New hair care collection now live",
+  "Premium routines inspired by modern homeopathic principles",
+];
 
 export default function Banner() {
+  const [isOpen, setIsOpen] = React.useState(true);
+  const [activeSlide, setActiveSlide] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
 
-    const [isOpen, setIsOpen] = React.useState(true);
+  React.useEffect(() => {
+    if (isPaused) return undefined;
 
-    const handleClaim = () => {
-        setIsOpen(false);
-        toast.success('Coupon copied to clipboard!');
-        navigator.clipboard.writeText('NEW20');
-    };
+    const timer = setInterval(() => {
+      setActiveSlide((current) => (current + 1) % announcementSlides.length);
+    }, 4000);
 
-    return isOpen && (
-        <div className="w-full px-6 py-1 font-medium text-sm text-white text-center bg-gradient-to-r from-violet-500 via-[#9938CA] to-[#E0724A]">
-            <div className='flex items-center justify-between max-w-7xl  mx-auto'>
-                <p>Get 20% OFF on Your First Order!</p>
-                <div className="flex items-center space-x-6">
-                    <button onClick={handleClaim} type="button" className="font-normal text-gray-800 bg-white px-7 py-2 rounded-full max-sm:hidden">Claim Offer</button>
-                    <button onClick={() => setIsOpen(false)} type="button" className="font-normal text-gray-800 py-2 rounded-full">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect y="12.532" width="17.498" height="2.1" rx="1.05" transform="rotate(-45.74 0 12.532)" fill="#fff" />
-                            <rect x="12.533" y="13.915" width="17.498" height="2.1" rx="1.05" transform="rotate(-135.74 12.533 13.915)" fill="#fff" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
+    return () => clearInterval(timer);
+  }, [isPaused]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="relative z-[60] bg-[#344E41] px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-white"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div className="mx-auto flex max-w-[1440px] items-center justify-center px-8 md:px-10 lg:px-20">
+        <div className="relative h-5 w-full overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={announcementSlides[activeSlide]}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="absolute inset-0 flex items-center justify-center leading-5"
+            >
+              {announcementSlides[activeSlide]}
+            </motion.p>
+          </AnimatePresence>
         </div>
-    );
-};
+        <button
+          type="button"
+          aria-label="Close announcement"
+          onClick={() => setIsOpen(false)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1 text-white/75 transition hover:bg-white/10 hover:text-white"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
