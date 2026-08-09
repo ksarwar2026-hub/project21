@@ -32,6 +32,10 @@ import heroBanner3 from "./heroBanners/heroBanner 3.png"
 import heroBannerMobile1 from "./heroBanners/heroBannerMobile1.png"
 import heroBannerMobile2B from "./heroBanners/heroBannerMobile2B.png"
 import heroBannerMobile3 from "./heroBanners/heroBannerMobile3.png"
+import concernHairfall from "./concernPro/hairfall.jpeg"
+import concernDandruff from "./concernPro/dradruff.png"
+import concernDryHair from "./concernPro/dryHair.jpg"
+import concernFrizzHair from "./concernPro/frizzHair.png"
 
 
 import { Truck, RotateCcw, Headphones, BadgeCheck, FlaskConical, ShieldCheck } from "lucide-react";
@@ -45,6 +49,7 @@ export const assets = {
     KsShampoo,HeroBannerMob,HeroBannerPC,
     heroBanner1, heroBanner2B, heroBanner3,
     heroBannerMobile1, heroBannerMobile2B, heroBannerMobile3,
+    concernHairfall, concernDandruff, concernDryHair, concernFrizzHair,
 }
 
 export const categories = ["Hair Care", "skin care", "Hair fall", "aloo", "khaooge", "hello malik"];

@@ -67,25 +67,25 @@ const concerns = [
     title: "Hair Fall",
     description: "Weak roots",
     href: "/shop?search=hair%20fall",
-    image: assets.HeroBannerPC,
+    image: assets.concernHairfall,
   },
   {
     title: "Dandruff",
     description: "Flakes and itch",
     href: "/shop?search=dandruff",
-    image: assets.HeroBannerMob,
+    image: assets.concernDandruff,
   },
   {
     title: "Dry Hair",
     description: "Rough lengths",
     href: "/shop?search=dry%20hair",
-    image: assets.hero_product_img1,
+    image: assets.concernDryHair,
   },
   {
     title: "Frizzy Hair",
     description: "Flyaways",
     href: "/shop?search=frizzy%20hair",
-    image: assets.hero_product_img2,
+    image: assets.concernFrizzHair,
   },
 ];
 
