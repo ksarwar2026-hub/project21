@@ -17,7 +17,7 @@ const reels = [
   {
     video: "/assets/reels/reel1.mp4",
     thumbnail: "/assets/reels/ReelPhoto1.jpg",
-    username: "hairwithzoya",
+    username: "__glam_with_swastikaaa__",
     verified: true,
     title: "Rosemary Hair Oil Routine",
     duration: "Used for 2 months",
@@ -27,7 +27,7 @@ const reels = [
   {
     video: "/assets/reels/reel2.mp4",
     thumbnail: "/assets/reels/ReelPhoto2.jpg",
-    username: "matin_khan",
+    username: "priyanshijain_5",
     verified: true,
     title: "Anti Hair Fall Shampoo",
     duration: "Used for 6 weeks",
@@ -37,7 +37,7 @@ const reels = [
   {
     video: "/assets/reels/reel3.mp4",
     thumbnail: "/assets/reels/ReelPhoto3.jpg",
-    username: "glow_with_neha",
+    username: "__04prakash",
     verified: true,
     title: "Nourishing Hair Mask",
     duration: "Used for 1 month",
@@ -47,7 +47,7 @@ const reels = [
   {
     video: "/assets/reels/reel4.mp4",
     thumbnail: "/assets/reels/ReelPhoto4.jpg",
-    username: "ranveer_hairjourney",
+    username: "swagger_singh_rajput",
     verified: true,
     title: "Onion Hair Oil Routine",
     duration: "Used for 3 months",
@@ -177,7 +177,7 @@ export default function CommunityReelsShowcase() {
             </div>
             <div>
               <p className="font-serif text-xl font-medium">Be a part of our journey</p>
-              <p className="mt-1 text-sm text-white/74">Tag us on Instagram @k.sarwar.care</p>
+              <p className="mt-1 text-sm text-white/74">Tag us on Instagram @ksarwarlab</p>
             </div>
           </div>
           <a

@@ -9,6 +9,20 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import Loading from "@/components/Loading";
 import ProductForm from "@/components/store/ProductForm";
 
+function getErrorMessage(error) {
+  const value = error?.response?.data?.error || error?.message || error;
+
+  if (!value) return "Something went wrong";
+  if (typeof value === "string") return value;
+  if (typeof value.message === "string") return value.message;
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "Something went wrong";
+  }
+}
+
 export default function StoreManageProducts() {
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -27,7 +41,7 @@ export default function StoreManageProducts() {
       });
       setProducts(data.products);
     } catch (error) {
-      toast.error(error?.response?.data?.error || error.message);
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -50,7 +64,7 @@ export default function StoreManageProducts() {
 
       toast.success(data.message);
     } catch (error) {
-      toast.error(error?.response?.data?.error || error.message);
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -67,7 +81,7 @@ export default function StoreManageProducts() {
       );
       toast.success(data.message);
     } catch (error) {
-      toast.error(error?.response?.data?.error || error.message);
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -83,7 +97,7 @@ export default function StoreManageProducts() {
       setEditingProduct(null);
       toast.success(data.message);
     } catch (error) {
-      throw new Error(error?.response?.data?.error || error.message);
+      throw new Error(getErrorMessage(error));
     } finally {
       setSaving(false);
     }

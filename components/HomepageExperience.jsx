@@ -215,27 +215,21 @@ const processSteps = [
 const ingredientBanners = [
   {
     name: "Rosemary",
-    subtitle: "Nature's foundation for healthier-looking hair.",
-    ctaText: "Explore Collection",
-    ctaLink: "/shop?search=rosemary",
-    desktopImage: assets.HeroBannerPC,
-    mobileImage: assets.HeroBannerMob,
+    desktopImage: assets.ingredient1Desktop,
+    tabletImage: assets.ingredient1Tablet,
+    mobileImage: assets.ingredient1Mobile,
   },
   {
-    name: "Onion",
-    subtitle: "A focused care cue for stronger-looking routines.",
-    ctaText: "Discover Products",
-    ctaLink: "/shop?search=onion",
-    desktopImage: assets.hero_product_img1,
-    mobileImage: assets.hero_product_img1,
+    name: "Rice Water",
+    desktopImage: assets.ingredient2Desktop,
+    tabletImage: assets.ingredient2Tablet,
+    mobileImage: assets.ingredient2Mobile,
   },
   {
     name: "Aloe Vera",
-    subtitle: "A calm care cue for softer, fresher-looking hair.",
-    ctaText: "View Collection",
-    ctaLink: "/shop?search=aloe%20vera",
-    desktopImage: assets.hero_product_img2,
-    mobileImage: assets.hero_product_img2,
+    desktopImage: assets.ingredient3Desktop,
+    tabletImage: assets.ingredient3Tablet,
+    mobileImage: assets.ingredient3Mobile,
   },
 ];
 
@@ -551,23 +545,33 @@ function ProductCard({ product }) {
 }
 
 function ProductShowcase({ products }) {
-  const dispatch = useDispatch();
-  const { user } = useUser();
   const [active, setActive] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const currency = getCurrency();
   const items = useMemo(
-    () =>
-      productShowcase.map((item, index) => ({
+    () => {
+      const realProducts = products.slice(0, 4).map((product) => ({
+        label: product.category || "Featured Product",
+        title: product.name,
+        description: product.description || "Premium hair care designed for a consistent daily routine.",
+        image: product.images?.[0] || assets.KsShampoo,
+        imageFit: "contain",
+        metric: product.category || "Hair care",
+        price: product.price,
+        href: `/product/${product.id}`,
+      }));
+      const placeholders = productShowcase.slice(realProducts.length, 4).map((item) => ({
         ...item,
-        product: products[index] || products[0] || null,
-      })),
+        price: item.fallbackPrice,
+        href: "/shop",
+      }));
+
+      return [...realProducts, ...placeholders];
+    },
     [products]
   );
   const activeItem = items[active];
-  const activeProduct = activeItem?.product;
-  const price = activeProduct?.price || activeItem?.fallbackPrice || 1499;
-  const productName = activeProduct?.name || activeItem?.title;
+  const price = activeItem?.price || 1499;
 
   useEffect(() => {
     if (isPaused) return undefined;
@@ -583,33 +587,16 @@ function ProductShowcase({ products }) {
     setActive((nextIndex + items.length) % items.length);
   };
 
-  const addShowcaseToCart = () => {
-    if (!activeProduct) {
-      toast("Product will be connected soon");
-      return;
-    }
-    if (!activeProduct.inStock) {
-      toast("Currently out of stock");
-      return;
-    }
-    if (!user) {
-      toast("Please login to add to cart");
-      return;
-    }
-    dispatch(addToCart({ productId: activeProduct.id }));
-    toast.success("Added to cart");
-  };
-
   return (
-    <section className="bg-[#1E372B] px-4 py-12 text-white md:px-8 md:py-16 lg:px-16">
+    <section className="bg-[#1E372B] px-3 py-10 text-white md:px-8 md:py-16 lg:px-16">
       <div
         className="mx-auto max-w-[1440px]"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
         <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#FCF9F8] text-[#1E372B] shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
-          <div className="grid min-h-[500px] lg:grid-cols-[55%_45%]">
-            <div className="relative min-h-[260px] overflow-hidden bg-[#F6F3F2] md:min-h-[390px] lg:min-h-[500px]">
+          <div className="grid lg:min-h-[500px] lg:grid-cols-[55%_45%]">
+            <div className="relative aspect-[16/11] overflow-hidden bg-[#F6F3F2] md:aspect-auto md:min-h-[390px] lg:min-h-[500px]">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={`${activeItem.label}-image`}
@@ -623,7 +610,11 @@ function ProductShowcase({ products }) {
                     src={activeItem.image}
                     alt={activeItem.title}
                     fill
-                    className={`${activeItem.imageFit === "cover" ? "object-cover" : "object-contain p-8 md:p-12 lg:p-14"}`}
+                    className={
+                      activeItem.imageFit === "cover"
+                        ? "object-contain p-5 md:object-cover md:p-0"
+                        : "object-contain p-5 md:p-12 lg:p-14"
+                    }
                     sizes="(max-width: 1024px) 100vw, 55vw"
                   />
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_35%,rgba(215,229,187,0.28),transparent_42%)]" />
@@ -648,7 +639,7 @@ function ProductShowcase({ products }) {
               </button>
             </div>
 
-            <div className="flex min-h-[300px] flex-col justify-center px-6 pb-16 pt-8 md:px-10 lg:min-h-[500px] lg:px-14 lg:py-10">
+            <div className="flex flex-col justify-center px-5 py-6 md:px-10 lg:min-h-[500px] lg:px-14 lg:py-10">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={`${activeItem.label}-content`}
@@ -660,14 +651,14 @@ function ProductShowcase({ products }) {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#566342]">
                     {activeItem.label}
                   </p>
-                  <h2 className="mt-4 max-w-xl font-serif text-3xl font-medium leading-[1.08] text-[#1E372B] md:text-4xl lg:text-[44px]">
+                  <h2 className="mt-2.5 line-clamp-2 max-w-xl font-serif text-[28px] font-medium leading-[1.08] text-[#1E372B] md:mt-4 md:text-4xl lg:text-[44px]">
                     {activeItem.title}
                   </h2>
-                  <p className="mt-4 max-w-md text-sm leading-7 text-[#5F665F] md:text-base">
+                  <p className="mt-3 line-clamp-4 max-w-md text-sm leading-6 text-[#5F665F] md:mt-4 md:text-base md:leading-7">
                     {activeItem.description}
                   </p>
 
-                  <div className="mt-7 grid max-w-md grid-cols-2 gap-3 border-y border-[#E5E2E1] py-4">
+                  <div className="mt-5 grid max-w-md grid-cols-2 gap-3 border-y border-[#E5E2E1] py-3.5 md:mt-7 md:py-4">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#727974]">
                         Focus
@@ -685,50 +676,17 @@ function ProductShowcase({ products }) {
                     </div>
                   </div>
 
-                  <p className="mt-5 line-clamp-1 text-sm font-medium text-[#344E41]">
-                    {productName}
-                  </p>
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                    {activeItem.cta === "Add to Cart" ? (
-                      <button
-                        type="button"
-                        onClick={addShowcaseToCart}
-                        className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#344E41] px-6 text-sm font-semibold text-white transition hover:bg-[#1E372B]"
-                      >
-                        {activeItem.cta}
-                      </button>
-                    ) : (
-                      <Link
-                        href={activeProduct ? `/product/${activeProduct.id}` : "/shop"}
-                        className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#344E41] px-6 text-sm font-semibold text-white transition hover:bg-[#1E372B]"
-                      >
-                        {activeItem.cta}
-                      </Link>
-                    )}
+                  <div className="mt-4 md:mt-5">
                     <Link
-                      href={activeProduct ? `/product/${activeProduct.id}` : "/shop"}
-                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#C2C8C2] px-6 text-sm font-semibold text-[#1E372B] transition hover:border-[#1E372B]"
+                      href={activeItem.href}
+                      className="inline-flex min-h-[50px] w-full items-center justify-center rounded-full bg-[#344E41] px-6 text-sm font-semibold text-white transition hover:bg-[#1E372B] sm:w-auto md:min-h-11"
                     >
-                      Learn More
+                      View Product
                     </Link>
                   </div>
                 </motion.div>
               </AnimatePresence>
             </div>
-          </div>
-
-          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/75 px-3 py-2 shadow-sm backdrop-blur">
-            {items.map((item, index) => (
-              <button
-                key={item.label}
-                type="button"
-                aria-label={`Go to showcase slide ${index + 1}`}
-                onClick={() => goToSlide(index)}
-                className={`h-2 rounded-full border border-[#344E41] transition-all ${
-                  active === index ? "w-7 bg-[#D98A2B]" : "w-2 bg-transparent"
-                }`}
-              />
-            ))}
           </div>
         </div>
       </div>
@@ -1079,66 +1037,45 @@ export default function HomepageExperience({ products = [] }) {
         </div>
       </section>
 
-      <section className="w-full">
-        <div className="grid gap-0">
-          {ingredientBanners.map((ingredient, index) => {
-            const textRight = index % 2 === 1;
-
-            return (
-              <motion.article
-                key={ingredient.name}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.52, delay: index * 0.05, ease: "easeOut" }}
-                className="relative min-h-[52vh] overflow-hidden bg-[#1E372B] sm:min-h-[55vh] lg:min-h-[70vh]"
-              >
-                <Image
-                  src={ingredient.mobileImage}
-                  alt={`${ingredient.name} ingredient banner`}
-                  fill
-                  className="object-cover md:hidden"
-                  sizes="100vw"
-                />
-                <Image
-                  src={ingredient.desktopImage}
-                  alt={`${ingredient.name} ingredient banner`}
-                  fill
-                  className="hidden object-cover md:block"
-                  sizes="(max-width: 1440px) 100vw, 1440px"
-                />
-                <div
-                  className={`absolute inset-0 hidden md:block ${
-                    textRight
-                      ? "bg-[linear-gradient(270deg,rgba(18,32,25,0.82)_0%,rgba(18,32,25,0.48)_36%,rgba(18,32,25,0.05)_72%)]"
-                      : "bg-[linear-gradient(90deg,rgba(18,32,25,0.82)_0%,rgba(18,32,25,0.48)_36%,rgba(18,32,25,0.05)_72%)]"
-                  }`}
-                />
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,32,25,0.02)_0%,rgba(18,32,25,0.1)_42%,rgba(18,32,25,0.82)_100%)] md:hidden" />
-                <div
-                  className={`relative flex min-h-[52vh] items-end px-5 py-7 sm:min-h-[55vh] md:items-center md:px-10 lg:min-h-[70vh] lg:px-20 ${
-                    textRight ? "md:justify-end md:text-right" : "md:justify-start"
-                  }`}
-                >
-                  <div className="max-w-[310px] text-white md:max-w-sm">
-                    <h2 className="font-serif text-3xl font-medium leading-tight md:text-[44px]">
-                      {ingredient.name}
-                    </h2>
-                    <p className="mt-3 text-sm leading-6 text-white/78 md:text-base">
-                      {ingredient.subtitle}
-                    </p>
-                    <Link
-                      href={ingredient.ctaLink}
-                      className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#D7E5BB] transition hover:gap-3 hover:text-white"
-                    >
-                      {ingredient.ctaText}
-                      <ArrowRight size={15} />
-                    </Link>
-                  </div>
-                </div>
-              </motion.article>
-            );
-          })}
+      <section className="w-full bg-[#FCF9F8]">
+        <div className="mx-auto max-w-3xl px-5 py-12 text-center md:px-10 md:py-16">
+          <h2 className="font-serif text-3xl font-medium leading-tight text-[#1E372B] md:text-5xl">
+            The Ingredients Behind the Formula
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#5F665F] md:text-base">
+            Thoughtfully selected botanicals, brought together through research.
+          </p>
+        </div>
+        <div className="grid gap-6 md:gap-7 lg:gap-8">
+          {ingredientBanners.map((ingredient, index) => (
+            <motion.article
+              key={ingredient.name}
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.52, delay: index * 0.05, ease: "easeOut" }}
+              className="overflow-hidden bg-[#FCF9F8]"
+            >
+              <Image
+                src={ingredient.mobileImage}
+                alt={`${ingredient.name} ingredient banner`}
+                className="block h-auto w-full md:hidden"
+                sizes="100vw"
+              />
+              <Image
+                src={ingredient.tabletImage}
+                alt={`${ingredient.name} ingredient banner`}
+                className="hidden h-auto w-full md:block lg:hidden"
+                sizes="100vw"
+              />
+              <Image
+                src={ingredient.desktopImage}
+                alt={`${ingredient.name} ingredient banner`}
+                className="hidden h-auto w-full lg:block"
+                sizes="100vw"
+              />
+            </motion.article>
+          ))}
         </div>
       </section>
 

@@ -56,7 +56,7 @@ export default async function Product({ params }) {
   const schema = generateProductSchema(product);
 
   return (
-    <div className="mx-6">
+    <main className="bg-[#FCF9F8] px-4 pb-12 text-[#1B1B1C] sm:px-6 lg:px-10">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -64,14 +64,18 @@ export default async function Product({ params }) {
         }}
       />
 
-      <div className="max-w-7xl mx-auto">
-        <div className="text-gray-600 text-sm mt-8 mb-5">
-          Home / Products / {product.category}
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-6 pt-8 text-sm font-medium text-[#6E776F]">
+          <span>Home</span>
+          <span className="mx-2 text-[#B4B0A7]">/</span>
+          <span>Products</span>
+          <span className="mx-2 text-[#B4B0A7]">/</span>
+          <span className="text-[#344E41]">{product.category}</span>
         </div>
 
         <ProductDetails product={product} />
         <ProductDescription product={product} />
       </div>
-    </div>
+    </main>
   );
 }

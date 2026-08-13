@@ -36,6 +36,15 @@ import concernHairfall from "./concernPro/hairfall.jpeg"
 import concernDandruff from "./concernPro/dradruff.png"
 import concernDryHair from "./concernPro/dryHair.jpg"
 import concernFrizzHair from "./concernPro/frizzHair.png"
+import ingredient1Mobile from "./ingridients/ingri1 mobile.png"
+import ingredient1Tablet from "./ingridients/ingri1 tablet.png"
+import ingredient1Desktop from "./ingridients/ingri1 PC.png"
+import ingredient2Mobile from "./ingridients/ingri2 mobile.png"
+import ingredient2Tablet from "./ingridients/ingri2 tablet.png"
+import ingredient2Desktop from "./ingridients/ingri2 pc.png"
+import ingredient3Mobile from "./ingridients/ingri3 mobile.png"
+import ingredient3Tablet from "./ingridients/ingri3 tablet.png"
+import ingredient3Desktop from "./ingridients/ingri3 pc.png"
 
 
 import { Truck, RotateCcw, Headphones, BadgeCheck, FlaskConical, ShieldCheck } from "lucide-react";
@@ -50,6 +59,9 @@ export const assets = {
     heroBanner1, heroBanner2B, heroBanner3,
     heroBannerMobile1, heroBannerMobile2B, heroBannerMobile3,
     concernHairfall, concernDandruff, concernDryHair, concernFrizzHair,
+    ingredient1Mobile, ingredient1Tablet, ingredient1Desktop,
+    ingredient2Mobile, ingredient2Tablet, ingredient2Desktop,
+    ingredient3Mobile, ingredient3Tablet, ingredient3Desktop,
 }
 
 export const categories = ["Hair Care", "skin care", "Hair fall", "aloo", "khaooge", "hello malik"];

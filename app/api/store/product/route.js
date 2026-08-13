@@ -29,6 +29,81 @@ function parseExistingImages(rawImages) {
   }
 }
 
+function parseContent(rawContent) {
+  if (!rawContent) {
+    return {};
+  }
+
+  try {
+    const content = JSON.parse(rawContent);
+    return content && typeof content === "object" && !Array.isArray(content) ? content : {};
+  } catch {
+    return {};
+  }
+}
+
+function compactTextArray(value) {
+  return Array.isArray(value)
+    ? value.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function sanitizeContent(content) {
+  return {
+    introduction: String(content.introduction || "").trim(),
+    formulaTitle: String(content.formulaTitle || "").trim(),
+    formulaDescription: String(content.formulaDescription || "").trim(),
+    productType: String(content.productType || "").trim(),
+    formula: String(content.formula || "").trim(),
+    hairType: String(content.hairType || "").trim(),
+    volume: String(content.volume || "").trim(),
+    whoItsFor: String(content.whoItsFor || "").trim(),
+    keyIngredients: Array.isArray(content.keyIngredients)
+      ? content.keyIngredients
+          .map((ingredient) => ({
+            name: String(ingredient?.name || "").trim(),
+            benefit: String(ingredient?.benefit || "").trim(),
+            imageUrl: String(ingredient?.imageUrl || "").trim(),
+          }))
+          .filter((ingredient) => ingredient.name || ingredient.benefit || ingredient.imageUrl)
+      : [],
+    benefits: compactTextArray(content.benefits),
+    usageSteps: Array.isArray(content.usageSteps)
+      ? content.usageSteps
+          .map((step, index) => ({
+            step: String(step?.step || String(index + 1).padStart(2, "0")).trim(),
+            title: String(step?.title || "").trim(),
+            text: String(step?.text || "").trim(),
+          }))
+          .filter((step) => step.title || step.text)
+      : [],
+    fullIngredients: compactTextArray(content.fullIngredients),
+    safety: compactTextArray(content.safety),
+    imageFiles: Array.isArray(content.imageFiles)
+      ? content.imageFiles
+          .map((file) => ({
+            url: String(file?.url || "").trim(),
+            fileId: String(file?.fileId || "").trim(),
+          }))
+          .filter((file) => file.url)
+      : [],
+  };
+}
+
+function getErrorMessage(error) {
+  const value = error?.response?.data?.error || error?.message || error?.code || error;
+
+  if (!value) return "Unable to save product";
+  if (typeof value === "string") return value;
+  if (typeof value.message === "string") return value.message;
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "Unable to save product";
+  }
+}
+
 async function uploadImages(images) {
   return Promise.all(
     images.map(async (image) => {
@@ -39,12 +114,23 @@ async function uploadImages(images) {
         folder: "products",
       });
 
-      return imagekit.url({
+      const url = imagekit.url({
         path: response.filePath,
         transformation: [{ quality: "auto" }, { format: "webp" }, { width: "1024" }],
       });
+
+      return {
+        url,
+        fileId: response.fileId,
+      };
     })
   );
+}
+
+async function deleteImageKitFiles(fileIds) {
+  const uniqueFileIds = [...new Set(fileIds.filter(Boolean))];
+
+  await Promise.allSettled(uniqueFileIds.map((fileId) => imagekit.deleteFile(fileId)));
 }
 
 function validateProductFields({ name, description, mrp, price, category }) {
@@ -69,6 +155,8 @@ async function getStoreId(request) {
 }
 
 export async function POST(request) {
+  let uploadedImages = [];
+
   try {
     const storeId = await getStoreId(request);
 
@@ -86,6 +174,7 @@ export async function POST(request) {
       .getAll("images")
       .filter((image) => image && typeof image.arrayBuffer === "function");
     const faqs = parseFaqs(formData.get("faqs"));
+    const content = sanitizeContent(parseContent(formData.get("content")));
 
     const validationError = validateProductFields({
       name,
@@ -110,7 +199,8 @@ export async function POST(request) {
       );
     }
 
-    const imageUrls = await uploadImages(images);
+    uploadedImages = await uploadImages(images);
+    const imageUrls = uploadedImages.map((image) => image.url);
 
     await prisma.product.create({
       data: {
@@ -120,6 +210,10 @@ export async function POST(request) {
         price,
         category: category.trim(),
         images: imageUrls,
+        content: {
+          ...content,
+          imageFiles: uploadedImages,
+        },
         storeId,
         faqs: {
           create: faqs.map((faq) => ({
@@ -133,11 +227,14 @@ export async function POST(request) {
     return NextResponse.json({ message: "Product added successfully" });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: error.code || error.message }, { status: 400 });
+    await deleteImageKitFiles(uploadedImages.map((image) => image.fileId));
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
   }
 }
 
 export async function PUT(request) {
+  let uploadedImages = [];
+
   try {
     const storeId = await getStoreId(request);
 
@@ -157,6 +254,7 @@ export async function PUT(request) {
       .getAll("images")
       .filter((image) => image && typeof image.arrayBuffer === "function");
     const faqs = parseFaqs(formData.get("faqs"));
+    const content = sanitizeContent(parseContent(formData.get("content")));
 
     if (!productId) {
       return NextResponse.json({ error: "missing product id" }, { status: 400 });
@@ -185,8 +283,9 @@ export async function PUT(request) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const uploadedImages = await uploadImages(newImages);
-    const allImages = [...existingImages, ...uploadedImages];
+    uploadedImages = await uploadImages(newImages);
+    const uploadedImageUrls = uploadedImages.map((image) => image.url);
+    const allImages = [...existingImages, ...uploadedImageUrls];
 
     if (allImages.length < 1) {
       return NextResponse.json({ error: "please keep at least one image" }, { status: 400 });
@@ -199,6 +298,14 @@ export async function PUT(request) {
       );
     }
 
+    const previousImageFiles = Array.isArray(product.content?.imageFiles)
+      ? product.content.imageFiles
+      : [];
+    const keptImageFiles = previousImageFiles.filter((file) => existingImages.includes(file.url));
+    const removedFileIds = previousImageFiles
+      .filter((file) => !existingImages.includes(file.url))
+      .map((file) => file.fileId);
+
     await prisma.product.update({
       where: {
         id: productId,
@@ -210,6 +317,10 @@ export async function PUT(request) {
         price,
         category: category.trim(),
         images: allImages,
+        content: {
+          ...content,
+          imageFiles: [...keptImageFiles, ...uploadedImages],
+        },
         faqs: {
           deleteMany: {},
           create: faqs.map((faq) => ({
@@ -220,10 +331,13 @@ export async function PUT(request) {
       },
     });
 
+    await deleteImageKitFiles(removedFileIds);
+
     return NextResponse.json({ message: "Product updated successfully" });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: error.code || error.message }, { status: 400 });
+    await deleteImageKitFiles(uploadedImages.map((image) => image.fileId));
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
   }
 }
 
@@ -275,10 +389,13 @@ export async function DELETE(request) {
       },
     });
 
+    const imageFiles = Array.isArray(product.content?.imageFiles) ? product.content.imageFiles : [];
+    await deleteImageKitFiles(imageFiles.map((file) => file.fileId));
+
     return NextResponse.json({ message: "Product deleted successfully" });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: error.code || error.message }, { status: 400 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
   }
 }
 
@@ -301,6 +418,6 @@ export async function GET(request) {
     return NextResponse.json({ products });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: error.code || error.message }, { status: 400 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
   }
 }

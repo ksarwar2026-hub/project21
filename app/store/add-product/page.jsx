@@ -6,6 +6,20 @@ import { useAuth } from "@clerk/nextjs";
 import { toast } from "react-hot-toast";
 import ProductForm from "@/components/store/ProductForm";
 
+function getErrorMessage(error) {
+  const value = error?.response?.data?.error || error?.message || error;
+
+  if (!value) return "Unable to add product";
+  if (typeof value === "string") return value;
+  if (typeof value.message === "string") return value.message;
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "Unable to add product";
+  }
+}
+
 export default function StoreAddProduct() {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -24,7 +38,7 @@ export default function StoreAddProduct() {
       toast.success(data.message);
       setFormVersion((prev) => prev + 1);
     } catch (error) {
-      throw new Error(error?.response?.data?.error || error.message);
+      throw new Error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -38,6 +52,7 @@ export default function StoreAddProduct() {
       submitLabel="Add Product"
       heading="Add New Product"
       helperText="Build a polished catalog entry with richer photos, correct categories, and FAQs your buyers actually care about."
+      enableDraft
     />
   );
 }
