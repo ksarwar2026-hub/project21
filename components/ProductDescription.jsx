@@ -166,6 +166,12 @@ const ProductDescription = ({ product }) => {
         content.whoItsFor ||
         "Suitable for customers looking for an all-hair-type daily scalp care product, rosemary and rice water hair routine support, lightweight leave-in hair care, and non-sticky everyday use."
 
+    const ingredientBannerImage =
+        content.ingredientBanner?.url ||
+        content.ingredientBannerUrl ||
+        content.keyIngredientBanner ||
+        descriptionHeroImage
+
     const productDetails = [
         ["Brand", "K-SARWAR"],
         ["Product Type", productType],
@@ -250,7 +256,7 @@ const ProductDescription = ({ product }) => {
                     <section aria-labelledby="key-ingredients-heading">
                         <div className="relative min-h-[360px] overflow-hidden rounded-[30px] border border-[#E5E2E1] bg-[#F8F4EA] shadow-[0_20px_60px_rgba(30,55,43,0.07)] sm:min-h-[430px]">
                             <Image
-                                src={descriptionHeroImage}
+                                src={ingredientBannerImage}
                                 alt={`${product.name} key ingredient product lab banner`}
                                 fill
                                 className="object-cover object-center"

@@ -50,6 +50,11 @@ function compactTextArray(value) {
 
 function sanitizeContent(content) {
   return {
+    isBestSeller: Boolean(content.isBestSeller),
+    ingredientBanner: {
+      url: String(content.ingredientBanner?.url || "").trim(),
+      fileId: String(content.ingredientBanner?.fileId || "").trim(),
+    },
     introduction: String(content.introduction || "").trim(),
     formulaTitle: String(content.formulaTitle || "").trim(),
     formulaDescription: String(content.formulaDescription || "").trim(),
@@ -104,19 +109,19 @@ function getErrorMessage(error) {
   }
 }
 
-async function uploadImages(images) {
+async function uploadImages(images, { folder = "products", width = "1024" } = {}) {
   return Promise.all(
     images.map(async (image) => {
       const buffer = Buffer.from(await image.arrayBuffer());
       const response = await imagekit.upload({
         file: buffer,
         fileName: image.name,
-        folder: "products",
+        folder,
       });
 
       const url = imagekit.url({
         path: response.filePath,
-        transformation: [{ quality: "auto" }, { format: "webp" }, { width: "1024" }],
+        transformation: [{ quality: "auto" }, { format: "webp" }, { width }],
       });
 
       return {
@@ -156,6 +161,7 @@ async function getStoreId(request) {
 
 export async function POST(request) {
   let uploadedImages = [];
+  let uploadedIngredientBanner = null;
 
   try {
     const storeId = await getStoreId(request);
@@ -173,6 +179,7 @@ export async function POST(request) {
     const images = formData
       .getAll("images")
       .filter((image) => image && typeof image.arrayBuffer === "function");
+    const ingredientBanner = formData.get("ingredientBanner");
     const faqs = parseFaqs(formData.get("faqs"));
     const content = sanitizeContent(parseContent(formData.get("content")));
 
@@ -201,6 +208,13 @@ export async function POST(request) {
 
     uploadedImages = await uploadImages(images);
     const imageUrls = uploadedImages.map((image) => image.url);
+    uploadedIngredientBanner =
+      ingredientBanner && typeof ingredientBanner.arrayBuffer === "function"
+        ? (await uploadImages([ingredientBanner], {
+            folder: "product-description-banners",
+            width: "1920",
+          }))[0]
+        : null;
 
     await prisma.product.create({
       data: {
@@ -213,6 +227,7 @@ export async function POST(request) {
         content: {
           ...content,
           imageFiles: uploadedImages,
+          ingredientBanner: uploadedIngredientBanner || content.ingredientBanner,
         },
         storeId,
         faqs: {
@@ -228,12 +243,14 @@ export async function POST(request) {
   } catch (error) {
     console.error(error);
     await deleteImageKitFiles(uploadedImages.map((image) => image.fileId));
+    await deleteImageKitFiles(uploadedIngredientBanner ? [uploadedIngredientBanner.fileId] : []);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
   }
 }
 
 export async function PUT(request) {
   let uploadedImages = [];
+  let uploadedIngredientBanner = null;
 
   try {
     const storeId = await getStoreId(request);
@@ -250,9 +267,11 @@ export async function PUT(request) {
     const price = Number(formData.get("price"));
     const category = formData.get("category");
     const existingImages = parseExistingImages(formData.get("existingImages"));
+    const existingIngredientBanner = String(formData.get("existingIngredientBanner") || "").trim();
     const newImages = formData
       .getAll("images")
       .filter((image) => image && typeof image.arrayBuffer === "function");
+    const ingredientBanner = formData.get("ingredientBanner");
     const faqs = parseFaqs(formData.get("faqs"));
     const content = sanitizeContent(parseContent(formData.get("content")));
 
@@ -286,6 +305,13 @@ export async function PUT(request) {
     uploadedImages = await uploadImages(newImages);
     const uploadedImageUrls = uploadedImages.map((image) => image.url);
     const allImages = [...existingImages, ...uploadedImageUrls];
+    uploadedIngredientBanner =
+      ingredientBanner && typeof ingredientBanner.arrayBuffer === "function"
+        ? (await uploadImages([ingredientBanner], {
+            folder: "product-description-banners",
+            width: "1920",
+          }))[0]
+        : null;
 
     if (allImages.length < 1) {
       return NextResponse.json({ error: "please keep at least one image" }, { status: 400 });
@@ -305,6 +331,15 @@ export async function PUT(request) {
     const removedFileIds = previousImageFiles
       .filter((file) => !existingImages.includes(file.url))
       .map((file) => file.fileId);
+    const previousIngredientBanner = product.content?.ingredientBanner || {};
+    const keptIngredientBanner =
+      previousIngredientBanner.url && previousIngredientBanner.url === existingIngredientBanner
+        ? previousIngredientBanner
+        : { url: "", fileId: "" };
+    const removedIngredientBannerFileIds =
+      previousIngredientBanner.fileId && previousIngredientBanner.url !== existingIngredientBanner
+        ? [previousIngredientBanner.fileId]
+        : [];
 
     await prisma.product.update({
       where: {
@@ -320,6 +355,7 @@ export async function PUT(request) {
         content: {
           ...content,
           imageFiles: [...keptImageFiles, ...uploadedImages],
+          ingredientBanner: uploadedIngredientBanner || keptIngredientBanner,
         },
         faqs: {
           deleteMany: {},
@@ -332,11 +368,13 @@ export async function PUT(request) {
     });
 
     await deleteImageKitFiles(removedFileIds);
+    await deleteImageKitFiles(removedIngredientBannerFileIds);
 
     return NextResponse.json({ message: "Product updated successfully" });
   } catch (error) {
     console.error(error);
     await deleteImageKitFiles(uploadedImages.map((image) => image.fileId));
+    await deleteImageKitFiles(uploadedIngredientBanner ? [uploadedIngredientBanner.fileId] : []);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 400 });
   }
 }
@@ -391,6 +429,9 @@ export async function DELETE(request) {
 
     const imageFiles = Array.isArray(product.content?.imageFiles) ? product.content.imageFiles : [];
     await deleteImageKitFiles(imageFiles.map((file) => file.fileId));
+    await deleteImageKitFiles(
+      product.content?.ingredientBanner?.fileId ? [product.content.ingredientBanner.fileId] : []
+    );
 
     return NextResponse.json({ message: "Product deleted successfully" });
   } catch (error) {

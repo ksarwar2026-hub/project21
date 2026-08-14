@@ -5,6 +5,9 @@ import { getPublicProductById } from "@/lib/data/storefront";
 import { generateProductSchema } from "@/lib/seo/productSchema";
 import { absoluteUrl, siteConfig } from "@/lib/site";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function generateMetadata({ params }) {
   const { productId } = await params;
   const product = await getPublicProductById(productId);

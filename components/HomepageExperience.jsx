@@ -913,9 +913,16 @@ function ResearchJourney() {
 }
 
 export default function HomepageExperience({ products = [] }) {
-  const bestSellers = products
+  const manuallySelectedBestSellers = products.filter((product) => product.content?.isBestSeller);
+  const bestSellers = (manuallySelectedBestSellers.length > 0 ? manuallySelectedBestSellers : products)
     .slice()
-    .sort((a, b) => (b.rating?.length || 0) - (a.rating?.length || 0))
+    .sort((a, b) => {
+      if (a.content?.isBestSeller !== b.content?.isBestSeller) {
+        return a.content?.isBestSeller ? -1 : 1;
+      }
+
+      return (b.rating?.length || 0) - (a.rating?.length || 0);
+    })
     .slice(0, 4);
 
   return (

@@ -3,6 +3,9 @@ import HomepageExperience from "@/components/HomepageExperience";
 import HomepageSkeleton from "@/components/HomepageSkeleton";
 import { getPublicProducts } from "@/lib/data/storefront";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 async function HomepageContent() {
   const products = await getPublicProducts({ limit: 16 });
 

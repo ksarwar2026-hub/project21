@@ -11,6 +11,16 @@ import {
 } from "@/lib/store/productCategories";
 
 const DRAFT_KEY = "ksarwar:add-product-draft:v2";
+const PRODUCT_IMAGE_COMPRESSION = {
+  maxWidth: 1200,
+  maxHeight: 1200,
+  quality: 0.72,
+};
+const BANNER_IMAGE_COMPRESSION = {
+  maxWidth: 1800,
+  maxHeight: 760,
+  quality: 0.76,
+};
 
 function createEmptyFaq() {
   return { question: "", answer: "" };
@@ -32,6 +42,11 @@ function createDefaultContent(product) {
   const content = product?.content || {};
 
   return {
+    isBestSeller: Boolean(content.isBestSeller),
+    ingredientBanner: {
+      url: content.ingredientBanner?.url || "",
+      fileId: content.ingredientBanner?.fileId || "",
+    },
     introduction: content.introduction || "",
     formulaTitle: content.formulaTitle || "What makes the formula different",
     formulaDescription: content.formulaDescription || "",
@@ -105,6 +120,10 @@ function createInitialState(product) {
           }))
         : [createEmptyFaq()],
     images: createInitialImages(product),
+    ingredientBannerImage: {
+      preview: product?.content?.ingredientBanner?.url || null,
+      file: null,
+    },
   };
 }
 
@@ -138,6 +157,51 @@ function hasDraftContent(productInfo, content, faqs) {
   return Boolean(productInfoHasContent || contentHasText || faqsHaveText);
 }
 
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new window.Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Selected image could not be processed."));
+    };
+    image.src = url;
+  });
+}
+
+async function compressImage(file, options = PRODUCT_IMAGE_COMPRESSION) {
+  if (!file || !file.type?.startsWith("image/")) return file;
+  if (typeof window === "undefined") return file;
+
+  const image = await loadImageFromFile(file);
+  const scale = Math.min(options.maxWidth / image.width, options.maxHeight / image.height, 1);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, width, height);
+
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/webp", options.quality);
+  });
+
+  if (!blob) return file;
+
+  const originalName = file.name.replace(/\.[^.]+$/, "");
+  return new File([blob], `${originalName}.webp`, {
+    type: "image/webp",
+    lastModified: Date.now(),
+  });
+}
+
 const ProductForm = ({
   initialProduct = null,
   onSubmit,
@@ -152,6 +216,7 @@ const ProductForm = ({
   const [content, setContent] = useState(initialState.content);
   const [faqs, setFaqs] = useState(initialState.faqs);
   const [images, setImages] = useState(initialState.images);
+  const [ingredientBannerImage, setIngredientBannerImage] = useState(initialState.ingredientBannerImage);
   const [draftAvailable, setDraftAvailable] = useState(false);
 
   useEffect(() => {
@@ -159,6 +224,7 @@ const ProductForm = ({
     setContent(initialState.content);
     setFaqs(initialState.faqs);
     setImages(initialState.images);
+    setIngredientBannerImage(initialState.ingredientBannerImage);
   }, [initialState]);
 
   useEffect(() => {
@@ -187,6 +253,13 @@ const ProductForm = ({
     }));
   };
 
+  const updateContentBoolean = (field, value) => {
+    setContent((prev) => ({
+      ...prev,
+      [field]: Boolean(value),
+    }));
+  };
+
   const onChangeHandler = (event) => {
     setProductInfo((prev) => ({
       ...prev,
@@ -194,17 +267,43 @@ const ProductForm = ({
     }));
   };
 
-  const handleImageUpload = (index, file) => {
-    setImages((prev) =>
-      prev.map((image, imageIndex) =>
-        imageIndex === index
-          ? {
-              preview: file ? URL.createObjectURL(file) : null,
-              file: file || null,
-            }
-          : image
-      )
-    );
+  const handleImageUpload = async (index, file) => {
+    try {
+      const processedFile = file ? await compressImage(file, PRODUCT_IMAGE_COMPRESSION) : null;
+
+      setImages((prev) =>
+        prev.map((image, imageIndex) =>
+          imageIndex === index
+            ? {
+                preview: processedFile ? URL.createObjectURL(processedFile) : null,
+                file: processedFile || null,
+              }
+            : image
+        )
+      );
+    } catch (error) {
+      toast.error(normalizeErrorMessage(error));
+    }
+  };
+
+  const handleIngredientBannerUpload = async (file) => {
+    try {
+      const processedFile = file ? await compressImage(file, BANNER_IMAGE_COMPRESSION) : null;
+
+      setIngredientBannerImage({
+        preview: processedFile ? URL.createObjectURL(processedFile) : null,
+        file: processedFile || null,
+      });
+    } catch (error) {
+      toast.error(normalizeErrorMessage(error));
+    }
+  };
+
+  const removeIngredientBanner = () => {
+    setIngredientBannerImage({
+      preview: null,
+      file: null,
+    });
   };
 
   const removeImage = (index) => {
@@ -334,6 +433,12 @@ const ProductForm = ({
       formData.append("content", JSON.stringify(content));
       formData.append("faqs", JSON.stringify(faqs));
       formData.append("existingImages", JSON.stringify(existingImages));
+      formData.append(
+        "existingIngredientBanner",
+        ingredientBannerImage.preview && !ingredientBannerImage.file
+          ? ingredientBannerImage.preview
+          : ""
+      );
 
       if (initialProduct?.id) {
         formData.append("productId", initialProduct.id);
@@ -342,6 +447,10 @@ const ProductForm = ({
       newImages.forEach((image) => {
         formData.append("images", image);
       });
+
+      if (ingredientBannerImage.file) {
+        formData.append("ingredientBanner", ingredientBannerImage.file);
+      }
 
       await onSubmit(formData);
 
@@ -455,6 +564,82 @@ const ProductForm = ({
               )}
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <label className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <span className="text-lg font-semibold text-slate-900">Homepage Best Seller</span>
+            <p className="mt-1 text-sm text-slate-500">
+              Turn this on to show the product in the homepage best seller section.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={content.isBestSeller}
+            onChange={(event) => updateContentBoolean("isBestSeller", event.target.checked)}
+            className="h-5 w-5 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+          />
+        </label>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Ingredient Banner</h2>
+            <p className="text-sm text-slate-500">
+              Upload a wide banner with empty space on the left and product/ingredients on the right.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+            Recommended 1800 x 760
+          </span>
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-[24px] border border-dashed border-slate-300 bg-slate-50">
+          <label
+            htmlFor="ingredient-banner-image"
+            className="relative flex min-h-[220px] cursor-pointer items-center justify-center overflow-hidden"
+          >
+            {ingredientBannerImage.preview ? (
+              <Image
+                src={ingredientBannerImage.preview}
+                alt="Ingredient banner preview"
+                fill
+                className="object-cover"
+                sizes="100vw"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-3 px-5 py-10 text-center text-sm text-slate-500">
+                <Upload size={26} />
+                <span className="font-medium text-slate-700">Upload product-specific ingredient banner</span>
+                <span>Keep text out of the image if possible. The public page overlays readable SEO text.</span>
+              </div>
+            )}
+          </label>
+
+          <input
+            id="ingredient-banner-image"
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(event) => handleIngredientBannerUpload(event.target.files?.[0] || null)}
+          />
+
+          {ingredientBannerImage.preview && (
+            <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3">
+              <p className="text-xs text-slate-500">This banner will be uploaded to ImageKit on save.</p>
+              <button
+                type="button"
+                onClick={removeIngredientBanner}
+                className="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+              >
+                <Trash2 size={16} />
+                Remove Banner
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
