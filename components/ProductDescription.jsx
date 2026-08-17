@@ -25,8 +25,6 @@ const ingredientImageFallbacks = [
     assets.concernDryHair,
 ]
 
-const ingredientIconFallbacks = [Leaf, Droplets, Leaf, Sparkles]
-
 const defaultKeyIngredients = [
     {
         name: "Rosemary",
@@ -137,6 +135,7 @@ const ProductDescription = ({ product }) => {
     const formula = content.formula || "Lightweight Leave-In"
     const hairType = content.hairType || "All Hair Types"
     const introduction = content.introduction || product.description
+    const introductionTitle = content.introductionTitle || `About this ${productType.toLowerCase()}`
     const formulaTitle = content.formulaTitle || "What makes the formula different"
     const formulaDescription =
         content.formulaDescription ||
@@ -185,7 +184,7 @@ const ProductDescription = ({ product }) => {
     }
 
     return (
-        <section className="my-16 text-[#1B1B1C]">
+        <section className="my-10 text-[#1B1B1C] sm:my-16">
 
             <div className="mb-8 flex border-b border-[#E5E2E1] text-sm">
                 {['Description', 'Reviews', 'FAQs'].map((tab) => (
@@ -204,21 +203,21 @@ const ProductDescription = ({ product }) => {
             </div>
 
             {selectedTab === "Description" && (
-                <article className="space-y-12" itemScope itemType="https://schema.org/Product">
+                <article className="space-y-9 sm:space-y-12" itemScope itemType="https://schema.org/Product">
                     <meta itemProp="name" content={product.name} />
                     <meta itemProp="brand" content="K-SARWAR" />
                     <meta itemProp="category" content={product.category} />
 
-                    <section className="grid gap-8 rounded-[28px] border border-[#E5E2E1] bg-white p-6 shadow-[0_18px_54px_rgba(30,55,43,0.05)] lg:grid-cols-[0.85fr_1.15fr] lg:p-8">
+                    <section className="grid gap-5 rounded-[22px] border border-[#E5E2E1] bg-white p-4 shadow-[0_18px_54px_rgba(30,55,43,0.05)] sm:rounded-[28px] sm:p-6 lg:grid-cols-[0.85fr_1.15fr] lg:p-8">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#6C826A]">
                                 Product Introduction
                             </p>
-                            <h2 className="mt-3 font-serif text-3xl font-medium leading-tight text-[#1E372B] sm:text-4xl">
-                                {product.name}
+                            <h2 className="mt-2 font-serif text-2xl font-medium leading-tight text-[#1E372B] sm:mt-3 sm:text-3xl">
+                                {introductionTitle}
                             </h2>
                         </div>
-                        <div className="space-y-5 text-sm leading-7 text-[#59645D]">
+                        <div className="space-y-4 text-sm leading-6 text-[#59645D] sm:leading-7">
                             <p itemProp="description">
                                 {introduction}
                             </p>
@@ -283,7 +282,6 @@ const ProductDescription = ({ product }) => {
 
                         <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                             {renderedIngredients.map((ingredient, index) => {
-                                const IngredientIcon = ingredientIconFallbacks[index % ingredientIconFallbacks.length]
                                 const ingredientImage = ingredient.imageUrl || ingredientImageFallbacks[index % ingredientImageFallbacks.length]
 
                                 return (
@@ -300,15 +298,12 @@ const ProductDescription = ({ product }) => {
                                             sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
                                         />
                                     </div>
-                                    <div className="p-6">
-                                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#EEF4DE] text-[#344E41]">
-                                            <IngredientIcon size={20} />
-                                        </div>
-                                        <h3 className="mt-4 text-base font-semibold uppercase tracking-[0.12em] text-[#1E372B]">
+                                    <div className="p-4 sm:p-5">
+                                        <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-[#1E372B] sm:text-base">
                                             {ingredient.name}
                                         </h3>
-                                        <div className="mt-3 h-px w-12 bg-[#C8CDBD]" />
-                                        <p className="mt-4 text-sm leading-7 text-[#59645D]">
+                                        <div className="mt-2 h-px w-10 bg-[#C8CDBD]" />
+                                        <p className="mt-3 text-sm leading-6 text-[#59645D] sm:leading-7">
                                             {ingredient.caption}
                                         </p>
                                     </div>
@@ -318,18 +313,18 @@ const ProductDescription = ({ product }) => {
                         </div>
                     </section>
 
-                    <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-                        <div className="rounded-[24px] border border-[#E5E2E1] bg-[#FCF9F8] p-6">
+                    <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:gap-6">
+                        <div className="rounded-[22px] border border-[#E5E2E1] bg-[#FCF9F8] p-4 sm:rounded-[24px] sm:p-6">
                             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#6C826A]">
                                 How It Works
                             </p>
-                            <h2 className="mt-3 font-serif text-3xl font-medium text-[#1E372B]">
+                            <h2 className="mt-2 font-serif text-2xl font-medium text-[#1E372B] sm:mt-3 sm:text-3xl">
                                 Benefits for everyday hair care
                             </h2>
                         </div>
-                        <div className="grid gap-3">
+                        <div className="overflow-hidden rounded-[22px] border border-[#E5E2E1] bg-white divide-y divide-[#E5E2E1] lg:grid lg:gap-3 lg:divide-y-0 lg:border-0 lg:bg-transparent">
                             {benefitPoints.map((benefit) => (
-                                <div key={benefit} className="flex gap-3 rounded-2xl border border-[#E5E2E1] bg-white p-4 text-sm leading-7 text-[#59645D]">
+                                <div key={benefit} className="flex gap-3 bg-white p-4 text-sm leading-6 text-[#59645D] lg:rounded-2xl lg:border lg:border-[#E5E2E1] lg:leading-7">
                                     <ListChecks className="mt-1 h-5 w-5 shrink-0 text-[#344E41]" />
                                     <span>{benefit}</span>
                                 </div>
@@ -337,22 +332,22 @@ const ProductDescription = ({ product }) => {
                         </div>
                     </section>
 
-                    <section className="rounded-[28px] border border-[#E5E2E1] bg-white p-6">
+                    <section className="rounded-[22px] border border-[#E5E2E1] bg-white p-4 sm:rounded-[28px] sm:p-6">
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#6C826A]">
                             How To Use
                         </p>
-                        <h2 className="mt-3 font-serif text-3xl font-medium text-[#1E372B]">
+                        <h2 className="mt-2 font-serif text-2xl font-medium text-[#1E372B] sm:mt-3 sm:text-3xl">
                             Apply. Massage. Leave.
                         </h2>
-                        <div className="mt-6 grid gap-4 md:grid-cols-3">
+                        <div className="mt-5 flex snap-x gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:pb-0">
                             {howToUseSteps.map((item) => (
-                                <div key={item.step} className="rounded-2xl border border-[#E5E2E1] bg-[#FCF9F8] p-5">
+                                <div key={item.step} className="min-w-[78%] snap-start rounded-2xl border border-[#E5E2E1] bg-[#FCF9F8] p-4 sm:min-w-[58%] md:min-w-0 md:p-5">
                                     <div className="flex items-center justify-between">
-                                        <span className="font-serif text-4xl text-[#A9B08D]">{item.step}</span>
-                                        <item.icon className="h-6 w-6 text-[#344E41]" />
+                                        <span className="font-serif text-3xl text-[#A9B08D] md:text-4xl">{item.step}</span>
+                                        <item.icon className="h-5 w-5 text-[#344E41] md:h-6 md:w-6" />
                                     </div>
-                                    <h3 className="mt-5 text-lg font-semibold text-[#1E372B]">{item.title}</h3>
-                                    <p className="mt-2 text-sm leading-7 text-[#59645D]">{item.text}</p>
+                                    <h3 className="mt-4 text-base font-semibold text-[#1E372B] md:mt-5 md:text-lg">{item.title}</h3>
+                                    <p className="mt-2 text-sm leading-6 text-[#59645D] md:leading-7">{item.text}</p>
                                 </div>
                             ))}
                         </div>
