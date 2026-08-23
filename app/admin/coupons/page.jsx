@@ -17,6 +17,9 @@ export default function AdminCoupons() {
         code: '',
         description: '',
         discount: '',
+        discountType: 'PERCENTAGE',
+        minimumPurchase: '',
+        maximumDiscount: '',
         forNewUser: false,
         forMember: false,
         isPublic: false,
@@ -59,6 +62,8 @@ export default function AdminCoupons() {
                 ...newCoupon,
                 code: upperCode,
                 discount: Number(newCoupon.discount),
+                minimumPurchase: Number(newCoupon.minimumPurchase) || 0,
+                maximumDiscount: newCoupon.maximumDiscount === '' ? null : Number(newCoupon.maximumDiscount),
                 expiresAt: new Date(newCoupon.expiresAt)
             }
 
@@ -75,6 +80,9 @@ export default function AdminCoupons() {
                 code: '',
                 description: '',
                 discount: '',
+                discountType: 'PERCENTAGE',
+                minimumPurchase: '',
+                maximumDiscount: '',
                 forNewUser: false,
                 forMember: false,
                 isPublic: false,
@@ -139,16 +147,49 @@ export default function AdminCoupons() {
                         onChange={handleChange}
                         required
                     />
+                </div>
+
+                <div className="flex gap-2 max-sm:flex-col mt-2">
+                    <select
+                        className="w-full p-2 border border-slate-200 outline-slate-400 rounded-md"
+                        name="discountType"
+                        value={newCoupon.discountType}
+                        onChange={handleChange}
+                    >
+                        <option value="PERCENTAGE">Percentage</option>
+                        <option value="FIXED">Fixed amount</option>
+                    </select>
                     <input
                         type="number"
-                        placeholder="Coupon Discount (%)"
+                        placeholder={newCoupon.discountType === 'FIXED' ? 'Discount Amount' : 'Coupon Discount (%)'}
                         min={1}
-                        max={100}
-                        className="w-full mt-2 p-2 border border-slate-200 outline-slate-400 rounded-md"
+                        max={newCoupon.discountType === 'PERCENTAGE' ? 100 : undefined}
+                        className="w-full p-2 border border-slate-200 outline-slate-400 rounded-md"
                         name="discount"
                         value={newCoupon.discount}
                         onChange={handleChange}
                         required
+                    />
+                </div>
+
+                <div className="flex gap-2 max-sm:flex-col mt-2">
+                    <input
+                        type="number"
+                        placeholder="Minimum Purchase"
+                        min={0}
+                        className="w-full p-2 border border-slate-200 outline-slate-400 rounded-md"
+                        name="minimumPurchase"
+                        value={newCoupon.minimumPurchase}
+                        onChange={handleChange}
+                    />
+                    <input
+                        type="number"
+                        placeholder="Maximum Discount"
+                        min={0}
+                        className="w-full p-2 border border-slate-200 outline-slate-400 rounded-md"
+                        name="maximumDiscount"
+                        value={newCoupon.maximumDiscount}
+                        onChange={handleChange}
                     />
                 </div>
 
@@ -233,6 +274,7 @@ export default function AdminCoupons() {
                                 <th className="py-3 px-4 text-left font-semibold text-slate-600">Code</th>
                                 <th className="py-3 px-4 text-left font-semibold text-slate-600">Description</th>
                                 <th className="py-3 px-4 text-left font-semibold text-slate-600">Discount</th>
+                                <th className="py-3 px-4 text-left font-semibold text-slate-600">Minimum</th>
                                 <th className="py-3 px-4 text-left font-semibold text-slate-600">Expires At</th>
                                 <th className="py-3 px-4 text-left font-semibold text-slate-600">New User</th>
                                 <th className="py-3 px-4 text-left font-semibold text-slate-600">For Member</th>
@@ -245,7 +287,14 @@ export default function AdminCoupons() {
                                 <tr key={coupon.code} className="hover:bg-slate-50">
                                     <td className="py-3 px-4 font-medium text-slate-800">{coupon.code}</td>
                                     <td className="py-3 px-4">{coupon.description}</td>
-                                    <td className="py-3 px-4">{coupon.discount}%</td>
+                                    <td className="py-3 px-4">
+                                        {coupon.discountType === 'FIXED'
+                                            ? `${process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'}${Number(coupon.discount).toLocaleString()}`
+                                            : `${coupon.discount}%`}
+                                    </td>
+                                    <td className="py-3 px-4">
+                                        {process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'}{Number(coupon.minimumPurchase || 0).toLocaleString()}
+                                    </td>
                                     <td className="py-3 px-4">
                                         {format(new Date(coupon.expiresAt), "yyyy-MM-dd")}
                                     </td>

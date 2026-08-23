@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { calculateCartTotals } from "@/lib/pricing/cart";
 import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
@@ -7,16 +8,29 @@ import { NextResponse } from "next/server";
 export async function POST(request){
     try {
         const {userId, has} = getAuth(request)
-        const { code } = await request.json()
+        const { code, cartItems } = await request.json()
+
+        if (!code?.trim()) {
+            return NextResponse.json({ error: "Coupon code is required" }, { status: 400 })
+        }
+
+        if (cartItems) {
+            const totals = await calculateCartTotals({
+                cartItems,
+                couponCode: code,
+                userId,
+                isPlusMember: Boolean(has?.({plan: 'plus'})),
+            })
+
+            return NextResponse.json({ coupon: totals.appliedCoupon, totals })
+        }
 
         const coupon = await prisma.coupon.findUnique({
-            where: {code: code.toUpperCase(),
-                expiresAt: {gt: new Date()}
-            }
+            where: {code: code.toUpperCase()}
         })
 
-        if (!coupon){
-            return NextResponse.json({ error: "Coupon not found" }, { status: 404 })
+        if (!coupon || coupon.expiresAt <= new Date()){
+            return NextResponse.json({ error: "Coupon not found or expired" }, { status: 404 })
         }
 
         if(coupon.forNewUser){
@@ -36,6 +50,6 @@ export async function POST(request){
         return NextResponse.json({coupon})
     } catch (error) {
         console.error(error);
-        return NextResponse.json({ error: error.code || error.message }, { status: 400 })
+        return NextResponse.json({ error: error.code || error.message }, { status: error.status || 400 })
     }
 }

@@ -3,16 +3,17 @@ import { usePathname } from "next/navigation"
 import { HomeIcon, LayoutListIcon, SquarePenIcon, SquarePlusIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { storePath } from "@/lib/privateRoutes"
 
 const StoreSidebar = ({storeInfo}) => {
 
     const pathname = usePathname()
 
     const sidebarLinks = [
-        { name: 'Dashboard', href: '/store', icon: HomeIcon },
-        { name: 'Add Product', href: '/store/add-product', icon: SquarePlusIcon },
-        { name: 'Manage Product', href: '/store/manage-product', icon: SquarePenIcon },
-        { name: 'Orders', href: '/store/orders', icon: LayoutListIcon },
+        { name: 'Dashboard', href: storePath(), match: ['/store', storePath()], icon: HomeIcon },
+        { name: 'Add Product', href: storePath('/add-product'), match: ['/store/add-product', storePath('/add-product')], icon: SquarePlusIcon },
+        { name: 'Manage Product', href: storePath('/manage-product'), match: ['/store/manage-product', storePath('/manage-product')], icon: SquarePenIcon },
+        { name: 'Orders', href: storePath('/orders'), match: ['/store/orders', storePath('/orders')], icon: LayoutListIcon },
     ]
 
     return (
@@ -25,10 +26,10 @@ const StoreSidebar = ({storeInfo}) => {
             <div className="max-sm:mt-6">
                 {
                     sidebarLinks.map((link, index) => (
-                        <Link key={index} href={link.href} className={`relative flex items-center gap-3 text-slate-500 hover:bg-slate-50 p-2.5 transition ${pathname === link.href && 'bg-slate-100 sm:text-slate-600'}`}>
+                        <Link key={index} href={link.href} className={`relative flex items-center gap-3 text-slate-500 hover:bg-slate-50 p-2.5 transition ${link.match.includes(pathname) && 'bg-slate-100 sm:text-slate-600'}`}>
                             <link.icon size={18} className="sm:ml-5" />
                             <p className="max-sm:hidden">{link.name}</p>
-                            {pathname === link.href && <span className="absolute bg-green-500 right-0 top-1.5 bottom-1.5 w-1 sm:w-1.5 rounded-l"></span>}
+                            {link.match.includes(pathname) && <span className="absolute bg-green-500 right-0 top-1.5 bottom-1.5 w-1 sm:w-1.5 rounded-l"></span>}
                         </Link>
                     ))
                 }

@@ -4,13 +4,31 @@ import AddressModal from './AddressModal';
 import { useDispatch, useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import {Protect, useAuth, useUser} from '@clerk/nextjs'
+import { useAuth, useUser } from '@clerk/nextjs'
 import axios from 'axios';
 import { fetchCart } from '@/lib/features/cart/cartSlice';
 import { useAnalytics } from '@/lib/posthog/useAnalytics';
 import { POSTHOG_EVENTS } from '@/lib/posthog/config';
+import { trackMetaInitiateCheckout, trackMetaPurchaseEvents } from '@/lib/meta/client';
 
-const OrderSummary = ({ totalPrice, items }) => {
+function createCheckoutIdempotencyKey() {
+    const id =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    return `checkout.${id}`;
+}
+
+const OrderSummary = ({
+    totals,
+    items,
+    cartItems,
+    couponCode,
+    setCouponCode,
+    refreshTotals,
+    pricingLoading = false,
+}) => {
 
     const {user} = useUser()
     const { getToken } = useAuth()
@@ -26,7 +44,13 @@ const OrderSummary = ({ totalPrice, items }) => {
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [showAddressModal, setShowAddressModal] = useState(false);
     const [couponCodeInput, setCouponCodeInput] = useState('');
-    const [coupon, setCoupon] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState(createCheckoutIdempotencyKey);
+    const coupon = totals?.appliedCoupon || null;
+    const subtotal = Number(totals?.subtotal || 0);
+    const couponDiscount = Number(totals?.couponDiscount || 0);
+    const shipping = Number(totals?.shipping || 0);
+    const total = Number(totals?.total || 0);
 
     const handleCouponCode = async (event) => {
         event.preventDefault();
@@ -35,10 +59,11 @@ const OrderSummary = ({ totalPrice, items }) => {
                 return toast('Please login to proceed')
             }
             const token = await getToken();
-            const { data } = await axios.post('/api/coupon', {code: couponCodeInput}, {
+            const { data } = await axios.post('/api/coupon', {code: couponCodeInput, cartItems}, {
                 headers: { Authorization: `Bearer ${token}` }
             })
-            setCoupon(data.coupon)
+            setCouponCode(data.coupon.code)
+            await refreshTotals(data.coupon.code)
             capture(POSTHOG_EVENTS.COUPON_APPLIED, {
                 coupon_code: data.coupon.code,
                 discount: data.coupon.discount,
@@ -53,6 +78,10 @@ const OrderSummary = ({ totalPrice, items }) => {
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
 
+        if (isSubmitting) {
+            return;
+        }
+
         try {
             if (!user) {
                 return toast('Please login to place an order');
@@ -62,12 +91,15 @@ const OrderSummary = ({ totalPrice, items }) => {
                 return toast('Please select an address');
             }
 
+            setIsSubmitting(true);
             const token = await getToken();
 
             const orderData = {
                 addressId: selectedAddress.id,
-                items,
-                paymentMethod
+                items: cartItems,
+                paymentMethod,
+                expectedTotal: total,
+                idempotencyKey: checkoutIdempotencyKey,
             };
 
             if (coupon) {
@@ -77,8 +109,13 @@ const OrderSummary = ({ totalPrice, items }) => {
             capture(POSTHOG_EVENTS.CHECKOUT_STARTED, {
                 payment_method: paymentMethod,
                 items_count: items.length,
-                total_price: totalPrice,
+                total_price: total,
                 coupon_code: coupon?.code || '',
+            })
+            trackMetaInitiateCheckout({
+                items,
+                value: total,
+                couponCode: coupon?.code || '',
             })
 
             // Step 1: Create Order in DB
@@ -90,7 +127,9 @@ const OrderSummary = ({ totalPrice, items }) => {
 
                 // Step 2: Create Razorpay Order
                 const razorRes = await axios.post('/api/payment/create-order', {
-                    amount: data.totalAmount
+                    orderIds: data.orderIds
+                }, {
+                    headers: { Authorization: `Bearer ${token}` }
                 });
 
                 const razorOrder = razorRes.data;
@@ -110,13 +149,14 @@ const OrderSummary = ({ totalPrice, items }) => {
                         // Step 3: Verify Payment
                         // Fresh token — purana token Razorpay modal mein expire ho sakta hai
                         const freshToken = await getToken();
-                        await axios.post('/api/payment/verify', {
+                        const verifyRes = await axios.post('/api/payment/verify', {
                             ...response,
                              orderIds: data.orderIds 
                         }, {
                             headers: { Authorization: `Bearer ${freshToken}` }
                         });
 
+                        trackMetaPurchaseEvents(verifyRes.data?.metaPurchaseEvents || []);
                         toast.success("Payment Successful 🎉");
                         router.push('/orders');
                         dispatch(fetchCart({ getToken }));
@@ -149,13 +189,20 @@ const OrderSummary = ({ totalPrice, items }) => {
 
             } else {
                 // COD
+                trackMetaPurchaseEvents(data.metaPurchaseEvents || []);
+                setCheckoutIdempotencyKey(createCheckoutIdempotencyKey());
                 toast.success(data.message);
                 router.push('/orders');
                 dispatch(fetchCart({ getToken }));
             }
 
         } catch (error) {
+            if (error?.response?.status === 409) {
+                await refreshTotals(couponCode)
+            }
             toast.error(error?.response?.data?.error || error.message);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -215,12 +262,12 @@ const OrderSummary = ({ totalPrice, items }) => {
                     <div className='flex flex-col gap-1 text-slate-400'>
                         <p>Subtotal:</p>
                         <p>Shipping:</p>
-                        {coupon && <p>Coupon ({coupon.discount}% off):</p>}
+                        {coupon && <p>Coupon ({coupon.code}):</p>}
                     </div>
                     <div className='flex flex-col gap-1 font-medium text-right'>
-                        <p>{currency}{totalPrice.toLocaleString()}</p>
-                        <p><Protect plan={'plus'} fallback={`${currency}5`}>Free</Protect></p>
-                        {coupon && <p>{`-${currency}${(coupon.discount / 100 * totalPrice).toFixed(2)}`}</p>}
+                        <p>{currency}{subtotal.toLocaleString()}</p>
+                        <p>{shipping > 0 ? `${currency}${shipping.toLocaleString()}` : 'Free'}</p>
+                        {coupon && <p>{`-${currency}${couponDiscount.toLocaleString()}`}</p>}
                     </div>
                 </div>
                 {
@@ -233,7 +280,11 @@ const OrderSummary = ({ totalPrice, items }) => {
                         <div className='w-full flex items-center justify-center gap-2 text-xs mt-2'>
                             <p>Code: <span className='font-semibold ml-1'>{coupon.code.toUpperCase()}</span></p>
                             <p>{coupon.description}</p>
-                            <XIcon size={18} onClick={() => setCoupon('')} className='hover:text-red-700 transition cursor-pointer' />
+                            <XIcon size={18} onClick={() => {
+                                setCouponCode('')
+                                setCouponCodeInput('')
+                                refreshTotals('')
+                            }} className='hover:text-red-700 transition cursor-pointer' />
                         </div>
                     )
                 }
@@ -241,12 +292,12 @@ const OrderSummary = ({ totalPrice, items }) => {
             <div className='flex justify-between py-4'>
                 <p>Total:</p>
                 <p className='font-medium text-right'>
-                    <Protect plan={'plus'} fallback={`${currency}${coupon ? (totalPrice + 5 - (coupon.discount / 100 * totalPrice)).toFixed(2) : (totalPrice + 5).toLocaleString()}`}>  
-                    {currency}{coupon ? (totalPrice - (coupon.discount / 100 * totalPrice)).toFixed(2) : totalPrice.toLocaleString()}
-                    </Protect>
+                    {currency}{total.toLocaleString()}
                 </p>
             </div>
-            <button onClick={e => toast.promise(handlePlaceOrder(e), { loading: 'placing Order...' })} className='w-full bg-slate-700 text-white py-2.5 rounded hover:bg-slate-900 active:scale-95 transition-all'>Place Order</button>
+            <button disabled={pricingLoading || isSubmitting} onClick={e => toast.promise(handlePlaceOrder(e), { loading: 'placing Order...' })} className='w-full bg-slate-700 text-white py-2.5 rounded hover:bg-slate-900 active:scale-95 transition-all disabled:bg-slate-400 disabled:cursor-not-allowed'>
+                {pricingLoading ? 'Updating totals...' : isSubmitting ? 'Placing order...' : 'Place Order'}
+            </button>
 
             {showAddressModal && <AddressModal setShowAddressModal={setShowAddressModal} />}
 

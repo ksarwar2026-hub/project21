@@ -4,6 +4,81 @@ import { PaymentMethod } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { captureServerEvents } from "@/lib/posthog/server";
 import { POSTHOG_EVENTS } from "@/lib/posthog/config";
+import { calculateCartTotals, getExpectedTotalMismatch } from "@/lib/pricing/cart";
+import {
+  META_EVENTS,
+  buildPurchaseData,
+  buildPurchaseEventId,
+} from "@/lib/meta/events";
+import {
+  buildMetaUserData,
+  sendMetaCapiEvents,
+  toBrowserMetaEvents,
+} from "@/lib/meta/server";
+
+function toPaise(value) {
+  return Math.round((Number(value) || 0) * 100);
+}
+
+function toRupees(paise) {
+  return Number((paise / 100).toFixed(2));
+}
+
+function isValidIdempotencyKey(value) {
+  return (
+    typeof value === "string" &&
+    value.length >= 16 &&
+    value.length <= 120 &&
+    /^[A-Za-z0-9._:-]+$/.test(value)
+  );
+}
+
+function toJsonValue(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+async function reserveCodCheckout({ idempotencyKey, userId }) {
+  try {
+    await prisma.checkoutIdempotency.create({
+      data: {
+        key: idempotencyKey,
+        userId,
+        paymentMethod: PaymentMethod.COD,
+      },
+    });
+
+    return { reserved: true };
+  } catch (error) {
+    if (error?.code !== "P2002") {
+      throw error;
+    }
+
+    const existing = await prisma.checkoutIdempotency.findUnique({
+      where: { key: idempotencyKey },
+    });
+
+    if (!existing || existing.userId !== userId || existing.paymentMethod !== PaymentMethod.COD) {
+      const conflict = new Error("Checkout is already being processed");
+      conflict.status = 409;
+      throw conflict;
+    }
+
+    if (existing.response) {
+      return {
+        reserved: false,
+        response: {
+          ...existing.response,
+          idempotentReplay: true,
+          metaPurchaseEvents: [],
+        },
+      };
+    }
+
+    const processing = new Error("Checkout is already being processed");
+    processing.status = 409;
+    throw processing;
+  }
+}
 
 export async function POST(request) {
   try {
@@ -13,15 +88,15 @@ export async function POST(request) {
       return NextResponse.json({ error: "not authorized" }, { status: 401 });
     }
 
-    const { addressId, items, couponCode, paymentMethod } =
+    const { addressId, items, couponCode, paymentMethod, expectedTotal, idempotencyKey } =
       await request.json();
 
     if (
       !addressId ||
       !paymentMethod ||
       !items ||
-      !Array.isArray(items) ||
-      items.length === 0
+      (Array.isArray(items) && items.length === 0) ||
+      (!Array.isArray(items) && Object.keys(items).length === 0)
     ) {
       return NextResponse.json(
         { error: "missing order details." },
@@ -36,91 +111,84 @@ export async function POST(request) {
       );
     }
 
+    if (paymentMethod === "COD" && !isValidIdempotencyKey(idempotencyKey)) {
+      return NextResponse.json(
+        { error: "Invalid checkout attempt. Please refresh and try again." },
+        { status: 400 }
+      );
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, email: true },
     });
-
-    let coupon = null;
-
-    if (couponCode) {
-      coupon = await prisma.coupon.findUnique({
-        where: { code: couponCode },
-      });
-
-      if (!coupon) {
-        return NextResponse.json(
-          { error: "Coupon not found" },
-          { status: 400 }
-        );
-      }
-    }
-
-    if (couponCode && coupon.forNewUser) {
-      const userorders = await prisma.order.findMany({
-        where: { userId },
-      });
-
-      if (userorders.length > 0) {
-        return NextResponse.json(
-          { error: "Coupon valid for new users" },
-          { status: 400 }
-        );
-      }
-    }
+    const address = await prisma.address.findFirst({
+      where: { id: addressId, userId },
+    });
 
     const isPlusMember = has({ plan: "plus" });
+    const totals = await calculateCartTotals({
+      cartItems: items,
+      couponCode,
+      userId,
+      isPlusMember,
+      requireAvailable: true,
+    });
 
-    if (couponCode && coupon.forMember) {
-      if (!isPlusMember) {
-        return NextResponse.json(
-          { error: "Coupon valid for members only" },
-          { status: 400 }
-        );
-      }
+    if (getExpectedTotalMismatch(expectedTotal, totals.totalPaise)) {
+      return NextResponse.json(
+        {
+          error: "Some prices in your cart have changed. Please review your updated total.",
+          totals,
+        },
+        { status: 409 }
+      );
     }
 
     const ordersByStore = new Map();
 
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.id },
-      });
-
-      if (!product) continue;
-
-      const storeId = product.storeId;
+    for (const item of totals.items) {
+      const storeId = item.storeId;
 
       if (!ordersByStore.has(storeId)) {
         ordersByStore.set(storeId, []);
       }
 
-      ordersByStore.get(storeId).push({
-        ...item,
-        price: product.price,
-        name: product.name,
-        category: product.category,
-      });
+      ordersByStore.get(storeId).push(item);
     }
 
     let orderIds = [];
     let fullAmount = 0;
 
     const analyticsEvents = [];
+    const metaPurchaseEvents = [];
+    let idempotencyReservation = null;
 
-    for (const [storeId, sellerItems] of ordersByStore.entries()) {
-      let total = sellerItems.reduce(
-        (acc, item) => acc + item.price * item.quantity,
+    if (paymentMethod === "COD") {
+      idempotencyReservation = await reserveCodCheckout({ idempotencyKey, userId });
+
+      if (!idempotencyReservation.reserved) {
+        return NextResponse.json(idempotencyReservation.response);
+      }
+    }
+
+    const storeEntries = Array.from(ordersByStore.entries());
+    const couponDiscountPaise = toPaise(totals.couponDiscount);
+    const subtotalPaise = toPaise(totals.subtotal);
+    let allocatedCouponDiscountPaise = 0;
+
+    for (const [index, [storeId, sellerItems]] of storeEntries.entries()) {
+      const storeSubtotalPaise = sellerItems.reduce(
+        (acc, item) => acc + toPaise(item.effectivePrice) * item.quantity,
         0
       );
+      const storeCouponDiscountPaise =
+        index === storeEntries.length - 1
+          ? couponDiscountPaise - allocatedCouponDiscountPaise
+          : Math.round((couponDiscountPaise * storeSubtotalPaise) / Math.max(subtotalPaise, 1));
+      allocatedCouponDiscountPaise += storeCouponDiscountPaise;
 
-      if (couponCode) {
-        total -= (total * coupon.discount) / 100;
-      }
-
-      // ✅ Launch phase: Shipping free for everyone (no +5 added)
-
-      total = Math.round(total); // ✅ Decimal nahi chahiye DB mein bhi
+      const total = toRupees(Math.max(0, storeSubtotalPaise - storeCouponDiscountPaise));
       fullAmount += total;
 
       const order = await prisma.order.create({
@@ -131,13 +199,13 @@ export async function POST(request) {
           total,
           paymentMethod,
           isPaid: false,
-          isCouponUsed: coupon ? true : false,
-          coupon: coupon ? coupon : {},
+          isCouponUsed: totals.appliedCoupon ? true : false,
+          coupon: totals.appliedCoupon || {},
           orderItems: {
             create: sellerItems.map((item) => ({
               productId: item.id,
               quantity: item.quantity,
-              price: item.price,
+              price: item.effectivePrice,
             })),
           },
         },
@@ -156,12 +224,24 @@ export async function POST(request) {
           store_id: storeId,
           total,
           payment_method: paymentMethod,
-          coupon_code: coupon?.code || "",
+          coupon_code: totals.appliedCoupon?.code || "",
           item_count: sellerItems.length,
         },
       });
 
       if (paymentMethod === "COD") {
+        metaPurchaseEvents.push({
+          eventName: META_EVENTS.PURCHASE,
+          eventId: buildPurchaseEventId(order.id, "cod"),
+          customData: buildPurchaseData({
+            orderId: order.id,
+            value: total,
+            items: sellerItems,
+            couponCode: totals.appliedCoupon?.code || "",
+          }),
+          userData: buildMetaUserData({ user, address, request }),
+        });
+
         sellerItems.forEach((item) => {
           analyticsEvents.push({
             distinctId: userId,
@@ -176,7 +256,7 @@ export async function POST(request) {
               product_id: item.id,
               product_name: item.name || "",
               category: item.category || "",
-              price: item.price,
+              price: item.effectivePrice,
               quantity: item.quantity,
             },
           });
@@ -192,19 +272,36 @@ export async function POST(request) {
       });
     }
 
-    await captureServerEvents(analyticsEvents);
-
-    return NextResponse.json({
+    const responsePayload = {
       orderIds,
-      totalAmount: fullAmount,
+      totalAmount: toRupees(toPaise(fullAmount)),
+      totals,
+      metaPurchaseEvents: toBrowserMetaEvents(metaPurchaseEvents),
       message: "Orders Placed Successfully",
-    });
+    };
+
+    if (paymentMethod === "COD") {
+      await prisma.checkoutIdempotency.update({
+        where: { key: idempotencyKey },
+        data: {
+          response: {
+            ...toJsonValue(responsePayload),
+            metaPurchaseEvents: [],
+          },
+        },
+      });
+    }
+
+    await captureServerEvents(analyticsEvents);
+    await sendMetaCapiEvents(metaPurchaseEvents, { request });
+
+    return NextResponse.json(responsePayload);
 
   } catch (error) {
     console.error(error);
     return NextResponse.json(
       { error: error.code || error.message },
-      { status: 400 }
+      { status: error.status || 400 }
     );
   }
 }

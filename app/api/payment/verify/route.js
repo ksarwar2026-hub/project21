@@ -4,6 +4,16 @@ import { NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
 import { captureServerEvents } from "@/lib/posthog/server";
 import { POSTHOG_EVENTS } from "@/lib/posthog/config";
+import {
+  META_EVENTS,
+  buildPurchaseDataFromOrder,
+  buildPurchaseEventId,
+} from "@/lib/meta/events";
+import {
+  buildMetaUserData,
+  sendMetaCapiEvents,
+  toBrowserMetaEvents,
+} from "@/lib/meta/server";
 
 export async function POST(request) {
   try {
@@ -46,18 +56,26 @@ export async function POST(request) {
       );
     }
 
-    // ✅ Mark ALL related orders as paid
-    await prisma.order.updateMany({
+    const updatedOrders = await prisma.order.updateMany({
       where: {
         id: { in: orderIds },
         userId: userId, // extra security
+        paymentMethod: "RAZORPAY",
+        razorpayOrderId: razorpay_order_id,
+        isPaid: false,
       },
       data: {
         isPaid: true,
-        razorpayOrderId: razorpay_order_id,
         razorpayPaymentId: razorpay_payment_id,
       },
     });
+
+    if (updatedOrders.count !== orderIds.length) {
+      return NextResponse.json(
+        { error: "Payment does not match pending orders" },
+        { status: 400 }
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -70,6 +88,7 @@ export async function POST(request) {
         userId,
       },
       include: {
+        address: true,
         orderItems: {
           include: {
             product: true,
@@ -120,7 +139,23 @@ export async function POST(request) {
       ),
     ]);
 
-    return NextResponse.json({ success: true });
+    const metaPurchaseEvents = paidOrders.map((order) => ({
+      eventName: META_EVENTS.PURCHASE,
+      eventId: buildPurchaseEventId(order.id, razorpay_payment_id),
+      customData: buildPurchaseDataFromOrder(order),
+      userData: buildMetaUserData({
+        user,
+        address: order.address,
+        request,
+      }),
+    }));
+
+    await sendMetaCapiEvents(metaPurchaseEvents, { request });
+
+    return NextResponse.json({
+      success: true,
+      metaPurchaseEvents: toBrowserMetaEvents(metaPurchaseEvents),
+    });
 
   } catch (error) {
     console.error("VERIFY ERROR:", error);

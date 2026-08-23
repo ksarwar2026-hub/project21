@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { applyEffectiveCampaignPrices, campaignProductIncludeFor } from "@/lib/campaigns";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -6,6 +7,7 @@ export const revalidate = 0;
 
 export async function GET(request){
     try {
+        const now = new Date();
         let products = await prisma.product.findMany({
             where: {},
             include: {
@@ -18,6 +20,7 @@ export async function GET(request){
                     }
                 },
                 store: true,
+                campaignProducts: campaignProductIncludeFor(now),
                 faqs: {
                     orderBy: { createdAt: "asc" }  // optional but clean
                 }
@@ -27,6 +30,7 @@ export async function GET(request){
 
         // remove products with store isActive false
         products = products.filter(product => product.store.isActive)
+        products = applyEffectiveCampaignPrices(products, now)
 
         return NextResponse.json({ products })
     } catch (error) {

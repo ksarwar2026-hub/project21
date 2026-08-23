@@ -2,12 +2,15 @@
 import { StarIcon, PlusIcon } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useState } from 'react'
 import { useDispatch } from 'react-redux'
 import { addToCart } from '@/lib/features/cart/cartSlice'
 import toast from 'react-hot-toast'
 import { useUser } from '@clerk/nextjs'
 import { useAnalytics } from '@/lib/posthog/useAnalytics'
 import { POSTHOG_EVENTS } from '@/lib/posthog/config'
+import { trackMetaAddToCart } from '@/lib/meta/client'
+import CampaignCountdown from '@/components/CampaignCountdown'
 
 const ProductCard = ({ product, truncateName = true, eventSource = 'product_grid' }) => {
 
@@ -15,8 +18,17 @@ const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'
 const dispatch = useDispatch()
 const { user } = useUser()
 const { capture } = useAnalytics()
+const [campaignVisible, setCampaignVisible] = useState(Boolean(product.activeCampaign))
 
-const totalRatings = product.rating.length
+const activeCampaign = campaignVisible ? product.activeCampaign : null
+const displayPrice = activeCampaign ? Number(product.effectivePrice) : Number(product.price)
+const originalPrice = activeCampaign
+    ? Number(product.mrp) > displayPrice
+        ? Number(product.mrp)
+        : Number(product.price)
+    : Number(product.mrp)
+const hasOriginalPrice = originalPrice > displayPrice
+const totalRatings = product.rating?.length || 0
 const avgRating = totalRatings > 0
     ? (product.rating.reduce((acc, curr) => acc + curr.rating, 0) / totalRatings).toFixed(1)
     : null
@@ -34,6 +46,7 @@ const handleAddToCart = (e) => {
         price: product.price,
         source: `${eventSource}_card`,
     })
+    trackMetaAddToCart(product)
     dispatch(addToCart({ productId: product.id }))
     toast.success('Added to cart')
 }
@@ -111,18 +124,33 @@ return (
                 <div className='flex items-center gap-2 mt-1'>
 
     <p className='text-sm font-semibold text-slate-900'>
-        {currency}{product.price.toLocaleString()}
+        {currency}{displayPrice.toLocaleString()}
     </p>
 
-    {product.mrp && product.mrp > product.price && (
+    {hasOriginalPrice && (
         <>
             <p className='text-xs text-slate-400 line-through'>
-                {currency}{product.mrp.toLocaleString()}
+                {currency}{originalPrice.toLocaleString()}
             </p>
         </>
     )}
 
 </div>
+
+                {activeCampaign && (
+                    <div className='mt-2 space-y-2'>
+                        <p className='inline-flex w-fit rounded-full bg-[#EEF4DE] px-2 py-1 text-[10px] font-semibold text-[#344E41]'>
+                            {activeCampaign.name || 'Limited Time Offer'}
+                        </p>
+                        {activeCampaign.showCountdown && (
+                            <CampaignCountdown
+                                endsAt={activeCampaign.endsAt}
+                                compact
+                                onExpire={() => setCampaignVisible(false)}
+                            />
+                        )}
+                    </div>
+                )}
 
             </div>
 

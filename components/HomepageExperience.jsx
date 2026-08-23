@@ -31,7 +31,9 @@ import {
 } from "lucide-react";
 import { assets } from "@/assets/assets";
 import { addToCart } from "@/lib/features/cart/cartSlice";
+import { trackMetaAddToCart } from "@/lib/meta/client";
 import CommunityReelsShowcase from "@/components/CommunityReelsShowcase";
+import CampaignCountdown from "@/components/CampaignCountdown";
 
 const heroSlides = [
   {
@@ -435,10 +437,18 @@ function ProductCard({ product }) {
   const currency = getCurrency();
   const dispatch = useDispatch();
   const { user } = useUser();
+  const [campaignVisible, setCampaignVisible] = useState(Boolean(product.activeCampaign));
   const reviewCount = product.rating?.length || 0;
-  const originalPrice =
-    product.mrp && product.mrp > product.price ? product.mrp : Math.round(product.price * 1.18);
-  const discount = Math.max(0, Math.round(((originalPrice - product.price) / originalPrice) * 100));
+  const activeCampaign = campaignVisible ? product.activeCampaign : null;
+  const displayPrice = activeCampaign ? Number(product.effectivePrice) : Number(product.price);
+  const originalPrice = activeCampaign
+    ? Number(product.mrp) > displayPrice
+      ? Number(product.mrp)
+      : Number(product.price)
+    : product.mrp && product.mrp > product.price
+      ? product.mrp
+      : Math.round(product.price * 1.18);
+  const discount = Math.max(0, Math.round(((originalPrice - displayPrice) / originalPrice) * 100));
   const benefit = product.category
     ? `${product.category} support for daily routines.`
     : "Daily care for healthier-looking hair.";
@@ -457,6 +467,7 @@ function ProductCard({ product }) {
       return;
     }
 
+    trackMetaAddToCart(product);
     dispatch(addToCart({ productId: product.id }));
     toast.success("Added to cart");
   };
@@ -479,7 +490,7 @@ function ProductCard({ product }) {
           <PlaceholderImage label="Image pending" className="h-full" />
         )}
         <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#1E372B] backdrop-blur sm:left-3 sm:top-3 sm:px-2.5">
-          Best Seller
+          {activeCampaign ? "Offer" : "Best Seller"}
         </span>
         <button
           type="button"
@@ -520,7 +531,7 @@ function ProductCard({ product }) {
         <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-3 sm:gap-2">
           <p className="text-sm font-semibold text-[#1E372B] sm:text-base">
             {currency}
-            {Number(product.price).toLocaleString()}
+            {Number(displayPrice).toLocaleString()}
           </p>
           <p className="text-[11px] text-[#9A9F99] line-through sm:text-xs">
             {currency}
@@ -530,6 +541,22 @@ function ProductCard({ product }) {
             {discount}% OFF
           </span>
         </div>
+        {activeCampaign && (
+          <div className="mt-2">
+            <p className="line-clamp-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#566342]">
+              {activeCampaign.name || "Limited Time Offer"}
+            </p>
+            {activeCampaign.showCountdown && (
+              <div className="mt-2">
+                <CampaignCountdown
+                  endsAt={activeCampaign.endsAt}
+                  compact
+                  onExpire={() => setCampaignVisible(false)}
+                />
+              </div>
+            )}
+          </div>
+        )}
         <div className="mt-auto pt-3">
           <button
             type="button"
@@ -912,7 +939,72 @@ function ResearchJourney() {
   );
 }
 
-export default function HomepageExperience({ products = [] }) {
+function LimitedTimeOffers({ products = [] }) {
+  if (!products.length) return null;
+
+  return (
+    <section className="mx-auto max-w-[1440px] px-5 py-10 md:px-10 md:py-16 lg:px-20">
+      <div className="flex flex-row items-end justify-between gap-4">
+        <div className="max-w-xl">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#566342] md:text-[11px]">
+            Limited-time offers
+          </p>
+          <h2 className="mt-3 font-serif text-3xl font-medium leading-tight text-[#1E372B] md:text-4xl">
+            Fresh prices for a short window.
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-[#5F665F]">
+            Active campaign picks selected for the homepage.
+          </p>
+        </div>
+        <Link
+          href="/shop"
+          className="hidden min-h-10 w-fit items-center gap-2 rounded-full bg-[#344E41] px-5 text-sm font-semibold text-white transition hover:bg-[#1E372B] sm:inline-flex"
+        >
+          Shop Offers <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="mt-7 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
+        {products.map((product) => (
+          <ProductCard key={`${product.activeCampaign?.id || "campaign"}-${product.id}`} product={product} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CampaignBannerSection({ banners = [] }) {
+  if (!banners.length) return null;
+
+  return (
+    <section className="w-full bg-[#FCF9F8]">
+      {banners.map((banner) => (
+        <Link
+          key={banner.id}
+          href="/shop"
+          aria-label={`Shop ${banner.name}`}
+          className="block w-full overflow-hidden"
+        >
+          <picture>
+            <source media="(max-width: 767px)" srcSet={banner.mobileBannerUrl} />
+            <img
+              src={banner.desktopBannerUrl}
+              alt={banner.name}
+              className="block h-auto w-full"
+              loading="lazy"
+            />
+          </picture>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+export default function HomepageExperience({
+  products = [],
+  campaignOffers = [],
+  campaignBanners = [],
+}) {
   const manuallySelectedBestSellers = products.filter((product) => product.content?.isBestSeller);
   const bestSellers = (manuallySelectedBestSellers.length > 0 ? manuallySelectedBestSellers : products)
     .slice()
@@ -1014,7 +1106,10 @@ export default function HomepageExperience({ products = [] }) {
         </Link>
       </section>
 
+      <LimitedTimeOffers products={campaignOffers} />
+
       <ProductShowcase products={bestSellers} />
+      <CampaignBannerSection banners={campaignBanners} />
 
       <section className="mx-auto max-w-[1440px] px-5 py-11 md:px-10 md:py-16 lg:px-20">
         <SectionIntro

@@ -3,10 +3,12 @@ import { addToCart, removeFromCart } from "@/lib/features/cart/cartSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { useAnalytics } from "@/lib/posthog/useAnalytics";
 import { POSTHOG_EVENTS } from "@/lib/posthog/config";
+import { trackMetaAddToCart } from "@/lib/meta/client";
 
 const Counter = ({ productId }) => {
 
     const { cartItems } = useSelector(state => state.cart);
+    const product = useSelector(state => state.product.list.find(item => item.id === productId));
 
     const dispatch = useDispatch();
     const { capture } = useAnalytics();
@@ -16,6 +18,7 @@ const Counter = ({ productId }) => {
             product_id: productId,
             current_quantity: cartItems[productId] || 0,
         })
+        trackMetaAddToCart(product || { id: productId })
         dispatch(addToCart({ productId }))
     }
 

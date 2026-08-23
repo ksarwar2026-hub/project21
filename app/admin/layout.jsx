@@ -1,5 +1,6 @@
 import AdminLayout from "@/components/admin/AdminLayout";
 import {SignedIn, SignedOut, SignIn} from "@clerk/nextjs"
+import { adminPath } from "@/lib/privateRoutes";
 
 export const metadata = {
     title: "K-Sarwar - Admin",
@@ -17,7 +18,7 @@ export default function RootAdminLayout({ children }) {
             </SignedIn>
             <SignedOut>
                 <div className="min-h-screen flex items-center justify-center">
-                    <SignIn fallbackRedirectUrl="/admin" routing="hash"/>
+                    <SignIn fallbackRedirectUrl={adminPath()} routing="hash"/>
                 </div>
             </SignedOut>
         </>

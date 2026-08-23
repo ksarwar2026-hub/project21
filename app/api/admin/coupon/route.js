@@ -16,7 +16,31 @@ export async function POST(request){
         }
 
         const { coupon } = await request.json()
-        coupon.code = coupon.code.toUpperCase()
+        coupon.code = String(coupon.code || "").trim().toUpperCase()
+        coupon.description = String(coupon.description || "").trim()
+        coupon.discount = Number(coupon.discount)
+        coupon.discountType = coupon.discountType === "FIXED" ? "FIXED" : "PERCENTAGE"
+        coupon.minimumPurchase = Math.max(0, Number(coupon.minimumPurchase) || 0)
+        coupon.maximumDiscount =
+            coupon.maximumDiscount === "" || coupon.maximumDiscount === null || coupon.maximumDiscount === undefined
+                ? null
+                : Math.max(0, Number(coupon.maximumDiscount) || 0)
+
+        if (!coupon.code || !coupon.description) {
+            return NextResponse.json({ error: "missing coupon details" }, { status: 400 })
+        }
+
+        if (!Number.isFinite(coupon.discount) || coupon.discount <= 0) {
+            return NextResponse.json({ error: "coupon discount is invalid" }, { status: 400 })
+        }
+
+        if (coupon.discountType === "PERCENTAGE" && coupon.discount > 100) {
+            return NextResponse.json({ error: "percentage discount cannot exceed 100" }, { status: 400 })
+        }
+
+        if (Number.isNaN(new Date(coupon.expiresAt).getTime())) {
+            return NextResponse.json({ error: "coupon expiry date is invalid" }, { status: 400 })
+        }
 
         await prisma.coupon.create({data: coupon}).then(async (coupon) => {
             // Run Inngest Sheduler Function to delete coupon on expire

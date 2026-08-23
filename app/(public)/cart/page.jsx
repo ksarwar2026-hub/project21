@@ -3,37 +3,55 @@ import Counter from "@/components/Counter";
 import OrderSummary from "@/components/OrderSummary";
 import PageTitle from "@/components/PageTitle";
 import { deleteItemFromCart } from "@/lib/features/cart/cartSlice";
+import { useAuth } from "@clerk/nextjs";
+import axios from "axios";
 import { Trash2Icon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
 
 export default function Cart() {
 
     const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$';
+    const { getToken } = useAuth();
     
     const { cartItems } = useSelector(state => state.cart);
-    const products = useSelector(state => state.product.list);
 
     const dispatch = useDispatch();
 
     const [cartArray, setCartArray] = useState([]);
-    const [totalPrice, setTotalPrice] = useState(0);
+    const [totals, setTotals] = useState(null);
+    const [couponCode, setCouponCode] = useState('');
+    const [pricingLoading, setPricingLoading] = useState(true);
 
-    const createCartArray = () => {
-        setTotalPrice(0);
-        const cartArray = [];
-        for (const [key, value] of Object.entries(cartItems)) {
-            const product = products.find(product => product.id === key);
-            if (product) {
-                cartArray.push({
-                    ...product,
-                    quantity: value,
-                });
-                setTotalPrice(prev => prev + product.price * value);
+    const fetchTotals = async (nextCouponCode = couponCode) => {
+        try {
+            setPricingLoading(true);
+            const token = await getToken();
+            const { data } = await axios.post(
+                '/api/cart/totals',
+                { cartItems, couponCode: nextCouponCode || undefined },
+                token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+            );
+
+            setTotals(data.totals);
+            setCartArray(data.totals.items || []);
+            setCouponCode(data.totals.appliedCoupon?.code || '');
+            return data.totals;
+        } catch (error) {
+            if (nextCouponCode) {
+                setCouponCode('');
+                toast.error(error?.response?.data?.error || error.message);
+                return fetchTotals('');
             }
+
+            toast.error(error?.response?.data?.error || error.message);
+            setTotals(null);
+            setCartArray([]);
+        } finally {
+            setPricingLoading(false);
         }
-        setCartArray(cartArray);
     }
 
     const handleDeleteItemFromCart = (productId) => {
@@ -41,10 +59,8 @@ export default function Cart() {
     }
 
     useEffect(() => {
-        if (products.length > 0) {
-            createCartArray();
-        }
-    }, [cartItems, products]);
+        fetchTotals(couponCode);
+    }, [cartItems]);
 
     return cartArray.length > 0 ? (
         <div className="min-h-screen mx-6 text-slate-800">
@@ -75,13 +91,25 @@ export default function Cart() {
                                             <div>
                                                 <p className="max-sm:text-sm">{item.name}</p>
                                                 <p className="text-xs text-slate-500">{item.category}</p>
-                                                <p>{currency}{item.price}</p>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    {item.activeCampaign && (
+                                                        <p className="text-xs text-slate-400 line-through">
+                                                            {currency}{Number(item.price).toLocaleString()}
+                                                        </p>
+                                                    )}
+                                                    <p>{currency}{Number(item.effectivePrice).toLocaleString()}</p>
+                                                </div>
+                                                {item.activeCampaign && (
+                                                    <p className="text-xs font-medium text-emerald-700">
+                                                        {item.activeCampaign.name || 'Limited Time Offer'}
+                                                    </p>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="text-center">
                                             <Counter productId={item.id} />
                                         </td>
-                                        <td className="text-center">{currency}{(item.price * item.quantity).toLocaleString()}</td>
+                                        <td className="text-center">{currency}{Number(item.lineTotal).toLocaleString()}</td>
                                         <td className="text-center max-md:hidden">
                                             <button onClick={() => handleDeleteItemFromCart(item.id)} className=" text-red-500 hover:bg-red-50 p-2.5 rounded-full active:scale-95 transition-all">
                                                 <Trash2Icon size={18} />
@@ -92,7 +120,15 @@ export default function Cart() {
                             }
                         </tbody>
                     </table>
-                    <OrderSummary totalPrice={totalPrice} items={cartArray} />
+                    <OrderSummary
+                        totals={totals}
+                        items={cartArray}
+                        cartItems={cartItems}
+                        couponCode={couponCode}
+                        setCouponCode={setCouponCode}
+                        refreshTotals={fetchTotals}
+                        pricingLoading={pricingLoading}
+                    />
                 </div>
             </div>
         </div>

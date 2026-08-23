@@ -7,6 +7,7 @@ import Loading from "@/components/Loading"
 import { useAuth, useUser } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import axios from "axios"
+import { storePath } from "@/lib/privateRoutes"
 
 export default function CreateStore() {
 
@@ -43,7 +44,7 @@ export default function CreateStore() {
                 switch (data.status) {
                     case "approved":
                         setMessage("Your store has been approved, you can now add products to your store from dashboard")
-                        setTimeout(()=>router.push("/store"), 5000)
+                        setTimeout(()=>router.push(storePath()), 5000)
                         break;
                     case "rejected":
                         setMessage("Your store request has been rejected, contact the admin for more details")

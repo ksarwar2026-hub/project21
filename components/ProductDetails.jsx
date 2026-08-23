@@ -23,7 +23,9 @@ import toast from "react-hot-toast";
 import { useEffect, useRef } from "react";
 import { useAnalytics } from "@/lib/posthog/useAnalytics";
 import { POSTHOG_EVENTS } from "@/lib/posthog/config";
+import { trackMetaAddToCart, trackMetaViewContent } from "@/lib/meta/client";
 import { getProductWhatsAppMessage, getWhatsAppUrl } from "@/lib/whatsapp";
+import CampaignCountdown from "@/components/CampaignCountdown";
 
 const careHighlights = [
     { label: "Research led", icon: FlaskConical },
@@ -50,15 +52,19 @@ const ProductDetails = ({ product }) => {
     const router = useRouter()
 
     const [mainImage, setMainImage] = useState(product.images[0]);
+    const [campaignVisible, setCampaignVisible] = useState(Boolean(product.activeCampaign));
 
     const ratingCount = product.rating?.length || 0;
+    const activeCampaign = campaignVisible ? product.activeCampaign : null;
     const mrp = Number(product.mrp) || 0;
-    const price = Number(product.price) || 0;
-    const hasDiscount = mrp > price && mrp > 0;
-    const savingsPercent = hasDiscount ? Math.round(((mrp - price) / mrp) * 100) : 0;
-    const savingsAmount = hasDiscount ? mrp - price : 0;
+    const basePrice = Number(product.price) || 0;
+    const price = activeCampaign ? Number(product.effectivePrice) || basePrice : basePrice;
+    const comparePrice = mrp > price ? mrp : activeCampaign ? basePrice : mrp;
+    const hasDiscount = comparePrice > price && comparePrice > 0;
+    const savingsPercent = hasDiscount ? Math.round(((comparePrice - price) / comparePrice) * 100) : 0;
+    const savingsAmount = hasDiscount ? comparePrice - price : 0;
     const formattedPrice = `${currency}${price.toLocaleString("en-IN")}`;
-    const formattedMrp = `${currency}${mrp.toLocaleString("en-IN")}`;
+    const formattedMrp = `${currency}${comparePrice.toLocaleString("en-IN")}`;
     const formattedSavings = `${currency}${savingsAmount.toLocaleString("en-IN")}`;
     const productWhatsAppUrl = getWhatsAppUrl(getProductWhatsAppMessage(product.name));
 
@@ -71,6 +77,7 @@ const ProductDetails = ({ product }) => {
             price: product.price,
             source: 'product_page',
         })
+        trackMetaAddToCart(product)
         dispatch(addToCart({ productId }))
     }
 
@@ -86,6 +93,7 @@ const ProductDetails = ({ product }) => {
             store_id: product.storeId,
             store_name: product.store?.name || '',
         })
+        trackMetaViewContent(product)
     }, [capture, product])
 
     const averageRating =
@@ -208,6 +216,35 @@ const ProductDetails = ({ product }) => {
                             </p>
                         )}
                     </div>
+
+                    {activeCampaign && (
+                        <div className="mt-5 rounded-[20px] border border-[#D7E5BB] bg-[#F4F8EA] p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <p className="inline-flex items-center gap-2 text-sm font-semibold text-[#344E41]">
+                                        <TagIcon size={15} />
+                                        {activeCampaign.name || "Limited Time Offer"}
+                                    </p>
+                                    {activeCampaign.description && (
+                                        <p className="mt-1 text-sm leading-6 text-[#6E776F]">
+                                            {activeCampaign.description}
+                                        </p>
+                                    )}
+                                </div>
+                                {activeCampaign.showCountdown && (
+                                    <div>
+                                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#77806F]">
+                                            Ends in
+                                        </p>
+                                        <CampaignCountdown
+                                            endsAt={activeCampaign.endsAt}
+                                            onExpire={() => setCampaignVisible(false)}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {hasDiscount && (
                         <div className="mt-4 flex flex-wrap gap-3">

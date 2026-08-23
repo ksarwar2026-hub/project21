@@ -6,6 +6,7 @@ import Script from "next/script";
 import StoreProvider from "@/app/StoreProvider";
 import { absoluteUrl, getBaseUrl, siteConfig } from "@/lib/site";
 import PostHogBoot from "@/components/analytics/PostHogBoot";
+import MetaPixelBoot from "@/components/analytics/MetaPixelBoot";
 import "./globals.css";
 
 const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600"] });
@@ -61,6 +62,7 @@ export default function RootLayout({ children }) {
             <Toaster />
             <Suspense fallback={null}>
               <PostHogBoot />
+              <MetaPixelBoot />
             </Suspense>
             {children}
           </StoreProvider>
