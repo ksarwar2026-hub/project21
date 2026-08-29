@@ -39,8 +39,7 @@ const AddressModal = ({ setShowAddressModal }) => {
             toast.success(data.message)
             setShowAddressModal(false)
         } catch (error) {
-            console.log(error)
-            toast.error(error?.response?.data?.message || error.message)
+            toast.error(error?.response?.data?.error || error.message)
         }
     }
 
@@ -51,11 +50,11 @@ const AddressModal = ({ setShowAddressModal }) => {
                 <input name="name" onChange={handleAddressChange} value={address.name} className="p-2 px-4 outline-none border border-slate-200 rounded w-full" type="text" placeholder="Enter your name" required />
                 <input name="email" onChange={handleAddressChange} value={address.email} className="p-2 px-4 outline-none border border-slate-200 rounded w-full" type="email" placeholder="Email address" required />
                 <input name="street" onChange={handleAddressChange} value={address.street} className="p-2 px-4 outline-none border border-slate-200 rounded w-full" type="text" placeholder="Street" required />
-                <div className="flex gap-4">
+                <div className="flex gap-4 max-sm:flex-col">
                     <input name="city" onChange={handleAddressChange} value={address.city} className="p-2 px-4 outline-none border border-slate-200 rounded w-full" type="text" placeholder="City" required />
                     <input name="state" onChange={handleAddressChange} value={address.state} className="p-2 px-4 outline-none border border-slate-200 rounded w-full" type="text" placeholder="State" required />
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-4 max-sm:flex-col">
                     <input name="zip" onChange={handleAddressChange} value={address.zip} className="p-2 px-4 outline-none border border-slate-200 rounded w-full" type="number" placeholder="Zip code" required />
                     <input name="country" onChange={handleAddressChange} value={address.country} className="p-2 px-4 outline-none border border-slate-200 rounded w-full" type="text" placeholder="Country" required />
                 </div>

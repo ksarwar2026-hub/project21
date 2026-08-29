@@ -3,10 +3,10 @@ import prisma from "@/lib/prisma";
 
 // helper
 const getName = (data) =>
-  `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim() || null;
+  `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim() || "Customer";
 
 const getEmail = (data) =>
-  data.email_addresses?.[0]?.email_address ?? null;
+  data.email_addresses?.[0]?.email_address ?? "";
 
 // ✅ CREATE / UPSERT USER
 export const syncUserCreation = inngest.createFunction(
@@ -19,14 +19,14 @@ export const syncUserCreation = inngest.createFunction(
       update: {
         email: getEmail(data),
         name: getName(data),
-        image: data.image_url ?? null,
+        image: data.image_url ?? "",
       },
       create: {
         id: data.id,
         email: getEmail(data),
         name: getName(data),
-        image: data.image_url ?? null,
-        cart: [],
+        image: data.image_url ?? "",
+        cart: {},
       },
     });
   }
@@ -43,14 +43,14 @@ export const syncUserUpdation = inngest.createFunction(
       update: {
         email: getEmail(data),
         name: getName(data),
-        image: data.image_url ?? null,
+        image: data.image_url ?? "",
       },
       create: {
         id: data.id,
         email: getEmail(data),
         name: getName(data),
-        image: data.image_url ?? null,
-        cart: [],
+        image: data.image_url ?? "",
+        cart: {},
       },
     });
   }

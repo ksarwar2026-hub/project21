@@ -189,7 +189,7 @@ const OrderSummary = ({
 
             } else {
                 // COD
-                trackMetaPurchaseEvents(data.metaPurchaseEvents || []);
+                await trackMetaPurchaseEvents(data.metaPurchaseEvents || []);
                 setCheckoutIdempotencyKey(createCheckoutIdempotencyKey());
                 toast.success(data.message);
                 router.push('/orders');
@@ -207,7 +207,7 @@ const OrderSummary = ({
     };
 
     return (
-        <div className='w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-base lg:text-sm rounded-xl p-7'>
+        <div className='w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-sm sm:text-base lg:text-sm rounded-xl p-4 sm:p-7'>
             <h2 className='text-xl font-medium text-slate-600'>Payment Summary</h2>
 
             {/* Razorpay under development notice */}
@@ -239,10 +239,10 @@ const OrderSummary = ({
                             <SquarePenIcon onClick={() => setSelectedAddress(null)} className='cursor-pointer shrink-0 mt-1' size={16} />
                         </div>
                     ) : (
-                        <div>
+                        <div className="min-w-0">
                             {
                                 addressList.length > 0 && (
-                                    <select className='border border-slate-400 p-2 w-full my-3 outline-none rounded' onChange={(e) => setSelectedAddress(addressList[e.target.value])} >
+                                    <select className='border border-slate-400 p-2 w-full my-3 outline-none rounded text-sm' onChange={(e) => setSelectedAddress(addressList[e.target.value])} >
                                         <option value="">Select Address</option>
                                         {
                                             addressList.map((address, index) => (
@@ -272,9 +272,9 @@ const OrderSummary = ({
                 </div>
                 {
                     !coupon ? (
-                        <form onSubmit={e => toast.promise(handleCouponCode(e), { loading: 'Checking Coupon...' })} className='flex justify-center gap-3 mt-3'>
+                        <form onSubmit={e => toast.promise(handleCouponCode(e), { loading: 'Checking Coupon...' })} className='flex flex-col justify-center gap-3 mt-3 sm:flex-row'>
                             <input onChange={(e) => setCouponCodeInput(e.target.value)} value={couponCodeInput} type="text" placeholder='Coupon Code' className='border border-slate-400 p-1.5 rounded w-full outline-none' />
-                            <button className='bg-slate-600 text-white px-3 rounded hover:bg-slate-800 active:scale-95 transition-all'>Apply</button>
+                            <button className='bg-slate-600 text-white px-3 py-2 rounded hover:bg-slate-800 active:scale-95 transition-all sm:py-0'>Apply</button>
                         </form>
                     ) : (
                         <div className='w-full flex items-center justify-center gap-2 text-xs mt-2'>
