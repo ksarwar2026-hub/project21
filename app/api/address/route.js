@@ -3,6 +3,10 @@ import { currentUser, getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const ADDRESS_FIELDS = ["name", "email", "street", "city", "state", "zip", "country", "phone"]
+const CHECKOUT_AUTH_REQUIRED = {
+    code: "AUTH_REQUIRED",
+    error: "Please log in to securely complete checkout.",
+}
 
 function normalizeAddress(address) {
     if (!address || typeof address !== "object" || Array.isArray(address)) {
@@ -46,7 +50,7 @@ export async function POST(request){
         const { userId } = getAuth(request)
 
         if (!userId) {
-            return NextResponse.json({ error: "not authorized" }, { status: 401 })
+            return NextResponse.json(CHECKOUT_AUTH_REQUIRED, { status: 401 })
         }
 
         const { address } = await request.json()
@@ -57,6 +61,17 @@ export async function POST(request){
         }
 
         await ensureUser(userId)
+
+        const existingAddress = await prisma.address.findFirst({
+            where: {
+                userId,
+                ...normalizedAddress,
+            }
+        })
+
+        if (existingAddress) {
+            return NextResponse.json({newAddress: existingAddress, message: 'Delivery address selected' })
+        }
 
         const newAddress = await prisma.address.create({
             data: {
@@ -78,7 +93,7 @@ export async function GET(request){
         const { userId } = getAuth(request)
 
         if (!userId) {
-            return NextResponse.json({ error: "not authorized" }, { status: 401 })
+            return NextResponse.json(CHECKOUT_AUTH_REQUIRED, { status: 401 })
         }
 
         const addresses = await prisma.address.findMany({

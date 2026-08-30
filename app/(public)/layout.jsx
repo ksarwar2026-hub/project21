@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProducts } from "@/lib/features/product/productSlice";
 import { useUser, useAuth } from "@clerk/nextjs";
-import { fetchCart, uploadCart } from "@/lib/features/cart/cartSlice";
+import { syncCartAfterLogin, uploadCart } from "@/lib/features/cart/cartSlice";
 import { fetchAddress } from "@/lib/features/address/addressSlice";
 import { fetchUserRatings } from "@/lib/features/rating/ratingSlice";
 
@@ -17,7 +17,7 @@ export default function PublicLayout({ children }) {
     const {user} = useUser()
     const {getToken} = useAuth()
 
-    const {cartItems} = useSelector((state)=>state.cart)
+    const {cartItems, fetchStatus} = useSelector((state)=>state.cart)
 
     useEffect(()=>{
         dispatch(fetchProducts({}))
@@ -25,17 +25,17 @@ export default function PublicLayout({ children }) {
 
     useEffect(()=>{
         if(user){
-            dispatch(fetchCart({getToken}))
+            dispatch(syncCartAfterLogin({getToken}))
             dispatch(fetchAddress({getToken}))
             dispatch(fetchUserRatings({getToken}))
         }
     },[user])
 
     useEffect(()=>{
-        if(user){
+        if(user && fetchStatus === 'succeeded'){
             dispatch(uploadCart({getToken}))
         }
-    },[cartItems])
+    },[cartItems, user, fetchStatus])
 
 
 

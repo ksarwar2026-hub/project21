@@ -6,7 +6,6 @@ import { useState } from 'react'
 import { useDispatch } from 'react-redux'
 import { addToCart } from '@/lib/features/cart/cartSlice'
 import toast from 'react-hot-toast'
-import { useUser } from '@clerk/nextjs'
 import { useAnalytics } from '@/lib/posthog/useAnalytics'
 import { POSTHOG_EVENTS } from '@/lib/posthog/config'
 import { trackMetaAddToCart } from '@/lib/meta/client'
@@ -16,7 +15,6 @@ const ProductCard = ({ product, truncateName = true, eventSource = 'product_grid
 
 const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'
 const dispatch = useDispatch()
-const { user } = useUser()
 const { capture } = useAnalytics()
 const [campaignVisible, setCampaignVisible] = useState(Boolean(product.activeCampaign))
 
@@ -38,7 +36,6 @@ const handleAddToCart = (e) => {
     e.preventDefault()
     e.stopPropagation()
     if (!product.inStock) return toast('Currently out of stock')
-    if (!user) return toast('Please login to add to cart')
     capture(POSTHOG_EVENTS.ADD_TO_CART_CLICKED, {
         product_id: product.id,
         product_name: product.name,

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { useUser } from "@clerk/nextjs";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import {
@@ -436,7 +435,6 @@ function ProductCard({ product }) {
   const rating = getRating(product);
   const currency = getCurrency();
   const dispatch = useDispatch();
-  const { user } = useUser();
   const [campaignVisible, setCampaignVisible] = useState(Boolean(product.activeCampaign));
   const reviewCount = product.rating?.length || 0;
   const activeCampaign = campaignVisible ? product.activeCampaign : null;
@@ -459,11 +457,6 @@ function ProductCard({ product }) {
 
     if (!product.inStock) {
       toast("Currently out of stock");
-      return;
-    }
-
-    if (!user) {
-      toast("Please login to add to cart");
       return;
     }
 

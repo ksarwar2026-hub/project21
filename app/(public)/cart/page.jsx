@@ -10,6 +10,8 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import { useAnalytics } from "@/lib/posthog/useAnalytics";
+import { POSTHOG_EVENTS } from "@/lib/posthog/config";
 
 function CartSkeleton() {
     const rows = [0, 1, 2];
@@ -110,6 +112,7 @@ export default function Cart() {
     const { cartItems, fetchStatus, fetchError } = useSelector(state => state.cart);
 
     const dispatch = useDispatch();
+    const { capture } = useAnalytics();
 
     const [cartArray, setCartArray] = useState([]);
     const [totals, setTotals] = useState(null);
@@ -117,6 +120,7 @@ export default function Cart() {
     const [pricingLoading, setPricingLoading] = useState(true);
     const [pricingError, setPricingError] = useState(null);
     const totalsRequestRef = useRef(0);
+    const cartViewedRef = useRef(false);
 
     const fetchTotals = async (nextCouponCode = couponCode) => {
         const requestId = totalsRequestRef.current + 1;
@@ -178,6 +182,19 @@ export default function Cart() {
 
         fetchTotals(couponCode);
     }, [cartItems, isLoaded, userId, fetchStatus]);
+
+    useEffect(() => {
+        if (cartViewedRef.current || !cartArray.length) {
+            return;
+        }
+
+        cartViewedRef.current = true;
+        capture(POSTHOG_EVENTS.VIEW_CART, {
+            items_count: cartArray.length,
+            total_quantity: Object.values(cartItems).reduce((acc, quantity) => acc + Number(quantity || 0), 0),
+            total_price: totals?.total || 0,
+        });
+    }, [capture, cartArray.length, cartItems, totals]);
 
     const handleRetry = () => {
         if (userId && fetchStatus === 'failed') {

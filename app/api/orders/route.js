@@ -16,6 +16,11 @@ import {
   toBrowserMetaEvents,
 } from "@/lib/meta/server";
 
+const CHECKOUT_AUTH_REQUIRED = {
+  code: "AUTH_REQUIRED",
+  error: "Please log in to securely complete checkout.",
+};
+
 function toPaise(value) {
   return Math.round((Number(value) || 0) * 100);
 }
@@ -85,7 +90,7 @@ export async function POST(request) {
     const { userId, has } = getAuth(request);
 
     if (!userId) {
-      return NextResponse.json({ error: "not authorized" }, { status: 401 });
+      return NextResponse.json(CHECKOUT_AUTH_REQUIRED, { status: 401 });
     }
 
     const { addressId, items, couponCode, paymentMethod, expectedTotal, idempotencyKey } =
@@ -100,7 +105,7 @@ export async function POST(request) {
     ) {
       return NextResponse.json(
         { error: "missing order details." },
-        { status: 401 }
+        { status: 400 }
       );
     }
 
@@ -125,6 +130,13 @@ export async function POST(request) {
     const address = await prisma.address.findFirst({
       where: { id: addressId, userId },
     });
+
+    if (!address) {
+      return NextResponse.json(
+        { error: "Please select a valid delivery address." },
+        { status: 400 }
+      );
+    }
 
     const isPlusMember = has({ plan: "plus" });
     const totals = await calculateCartTotals({
@@ -312,7 +324,7 @@ export async function GET(request) {
 
     if (!userId) {
       return NextResponse.json(
-        { error: "not authorized" },
+        CHECKOUT_AUTH_REQUIRED,
         { status: 401 }
       );
     }
