@@ -12,6 +12,7 @@ import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { useAnalytics } from "@/lib/posthog/useAnalytics";
 import { POSTHOG_EVENTS } from "@/lib/posthog/config";
+import { getOrCreateCheckoutSessionId } from "@/lib/posthog/checkoutSession";
 
 function CartSkeleton() {
     const rows = [0, 1, 2];
@@ -190,6 +191,8 @@ export default function Cart() {
 
         cartViewedRef.current = true;
         capture(POSTHOG_EVENTS.VIEW_CART, {
+            checkout_session_id: getOrCreateCheckoutSessionId(),
+            checkout_stage: 'cart_viewed',
             items_count: cartArray.length,
             total_quantity: Object.values(cartItems).reduce((acc, quantity) => acc + Number(quantity || 0), 0),
             total_price: totals?.total || 0,

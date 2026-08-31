@@ -5,8 +5,10 @@ import { useAuth } from "@clerk/nextjs";
 import axios from "axios";
 import {
   Activity,
+  ArrowDown,
   BadgePercent,
   CircleDollarSignIcon,
+  Info,
   Search,
   ShoppingBasketIcon,
   ShoppingCart,
@@ -37,6 +39,12 @@ const formatDate = (value) =>
     day: "numeric",
     month: "short",
   });
+
+const formatStageCount = (stage) =>
+  stage?.hasData ? formatCompact(stage.count) : "No data yet";
+
+const formatStageRate = (value) =>
+  typeof value === "number" ? `${value}%` : "Not enough data";
 
 const StatCard = ({ title, value, icon: Icon, accent = "emerald", helper }) => {
   const styles = {
@@ -76,6 +84,60 @@ const SectionCard = ({ title, subtitle, children, rightSlot }) => (
   </section>
 );
 
+const FunnelStageCard = ({ stage, isFirst = false }) => (
+  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-slate-800">{stage.label}</p>
+        <p className="mt-2 text-2xl font-semibold text-slate-900">{formatStageCount(stage)}</p>
+      </div>
+      {!isFirst && (
+        <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm">
+          {formatStageRate(stage.previousRate)}
+        </div>
+      )}
+    </div>
+    {!isFirst && (
+      <p className="mt-3 text-xs text-slate-500">
+        {typeof stage.overallRate === "number"
+          ? `${stage.overallRate}% from first step`
+          : "Overall rate unavailable"}
+      </p>
+    )}
+  </div>
+);
+
+const FunnelColumn = ({ stages = [] }) => (
+  <div className="grid gap-3">
+    {stages.map((stage, index) => (
+      <div key={stage.key}>
+        <FunnelStageCard stage={stage} isFirst={index === 0} />
+        {index < stages.length - 1 && (
+          <div className="flex justify-center py-2 text-slate-300">
+            <ArrowDown size={18} />
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+);
+
+const DropoffInsight = ({ title, insight, fallback }) => (
+  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{title}</p>
+    {insight ? (
+      <>
+        <p className="mt-3 text-sm font-semibold text-slate-800">
+          {insight.from} to {insight.to}
+        </p>
+        <p className="mt-1 text-2xl font-semibold text-rose-600">{insight.dropoffRate}% drop-off</p>
+      </>
+    ) : (
+      <p className="mt-3 text-sm leading-6 text-slate-500">{fallback}</p>
+    )}
+  </div>
+);
+
 export default function AdminDashboard() {
   const { getToken } = useAuth();
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "Rs";
@@ -97,6 +159,16 @@ export default function AdminDashboard() {
     topProducts: [],
     topSearches: [],
     activeUsers: [],
+    checkoutFunnel: {
+      periodLabel: "Last 30 days",
+      historicalNote: "",
+      coreStages: [],
+      authStages: [],
+      biggestDropoff: null,
+      authDropoff: null,
+      orderAfterLoginAvailable: false,
+      orderAfterLoginNote: "",
+    },
   });
 
   const fetchDashboardData = async () => {
@@ -353,6 +425,74 @@ export default function AdminDashboard() {
           </div>
         </SectionCard>
       </div>
+
+      <SectionCard
+        title="Checkout Funnel"
+        subtitle="See where customers move from cart to completed order."
+        rightSlot={
+          <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+            {dashboardData.checkoutFunnel?.periodLabel || "Last 30 days"}
+          </div>
+        }
+      >
+        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-semibold text-slate-900">Core Checkout Funnel</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Add to cart to cart viewed to address entered to order completed.
+                </p>
+              </div>
+            </div>
+            <FunnelColumn stages={dashboardData.checkoutFunnel?.coreStages || []} />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-slate-900">Guest Checkout & Login</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Understand whether guests stop after the login prompt.
+              </p>
+            </div>
+            <FunnelColumn stages={dashboardData.checkoutFunnel?.authStages || []} />
+            {!dashboardData.checkoutFunnel?.orderAfterLoginAvailable && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm leading-6 text-amber-800">
+                <div className="flex items-start gap-2">
+                  <Info size={16} className="mt-1 shrink-0" />
+                  <p>
+                    {dashboardData.checkoutFunnel?.orderAfterLoginNote ||
+                      "Orders after login prompt need a shared checkout/session id before they can be measured accurately."}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <DropoffInsight
+            title="Biggest checkout drop-off"
+            insight={dashboardData.checkoutFunnel?.biggestDropoff}
+            fallback="No drop-off insight yet. Funnel stages need real event data before this can be calculated."
+          />
+          <DropoffInsight
+            title="Guest login friction"
+            insight={dashboardData.checkoutFunnel?.authDropoff}
+            fallback="No login drop-off insight yet. Guest login events need real data first."
+          />
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm leading-6 text-slate-500">
+          <div className="flex items-start gap-2">
+            <Info size={16} className="mt-1 shrink-0 text-slate-400" />
+            <p>
+              {dashboardData.checkoutFunnel?.historicalNote ||
+                "This section uses PostHog checkout events for the selected period."}
+            </p>
+          </div>
+        </div>
+      </SectionCard>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_0.8fr]">
         <SectionCard title="Top Products" subtitle="Most viewed and most converted products in the last 30 days.">

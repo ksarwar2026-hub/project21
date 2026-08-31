@@ -10,6 +10,7 @@ import { fetchCart } from '@/lib/features/cart/cartSlice';
 import { addAddress } from '@/lib/features/address/addressSlice';
 import { useAnalytics } from '@/lib/posthog/useAnalytics';
 import { POSTHOG_EVENTS } from '@/lib/posthog/config';
+import { getOrCreateCheckoutSessionId, resetCheckoutSessionId } from '@/lib/posthog/checkoutSession';
 import { trackMetaInitiateCheckout, trackMetaPurchaseEvents } from '@/lib/meta/client';
 
 const ONLINE_PAYMENT_ENABLED = false;
@@ -143,6 +144,8 @@ const OrderSummary = ({
             window.sessionStorage.setItem(LOGIN_PROMPT_STORAGE_KEY, '1');
         }
         capture(POSTHOG_EVENTS.LOGIN_PROMPT_SHOWN, {
+            checkout_session_id: getOrCreateCheckoutSessionId(),
+            checkout_stage: 'login_prompt_shown',
             trigger: 'place_order',
             has_address: Boolean(selectedAddress),
             total_price: total,
@@ -193,6 +196,8 @@ const OrderSummary = ({
         }
 
         capture(POSTHOG_EVENTS.ADDRESS_COMPLETED, {
+            checkout_session_id: getOrCreateCheckoutSessionId(),
+            checkout_stage: 'address_completed',
             is_logged_in: Boolean(user),
             source: 'checkout_address_modal',
         });
@@ -272,6 +277,8 @@ const OrderSummary = ({
 
     const handleLoginClick = () => {
         capture(POSTHOG_EVENTS.LOGIN_STARTED, {
+            checkout_session_id: getOrCreateCheckoutSessionId(),
+            checkout_stage: 'login_started',
             trigger: 'checkout_prompt',
             has_address: Boolean(selectedAddress),
             total_price: total,
@@ -327,6 +334,8 @@ const OrderSummary = ({
             }
 
             capture(POSTHOG_EVENTS.CHECKOUT_STARTED, {
+                checkout_session_id: getOrCreateCheckoutSessionId(),
+                checkout_stage: 'place_order_started',
                 payment_method: paymentMethod,
                 items_count: items.length,
                 total_price: total,
@@ -378,11 +387,14 @@ const OrderSummary = ({
 
                         trackMetaPurchaseEvents(verifyRes.data?.metaPurchaseEvents || []);
                         capture(POSTHOG_EVENTS.CHECKOUT_COMPLETED, {
+                            checkout_session_id: getOrCreateCheckoutSessionId(),
+                            checkout_stage: 'checkout_completed',
                             payment_method: paymentMethod,
                             order_ids: data.orderIds,
                             total_price: total,
                         });
                         clearPendingCheckout();
+                        resetCheckoutSessionId();
                         toast.success("Payment Successful");
                         router.push('/orders');
                         dispatch(fetchCart({ getToken }));
@@ -417,11 +429,14 @@ const OrderSummary = ({
                 // COD
                 await trackMetaPurchaseEvents(data.metaPurchaseEvents || []);
                 capture(POSTHOG_EVENTS.CHECKOUT_COMPLETED, {
+                    checkout_session_id: getOrCreateCheckoutSessionId(),
+                    checkout_stage: 'checkout_completed',
                     payment_method: paymentMethod,
                     order_ids: data.orderIds,
                     total_price: total,
                 });
                 clearPendingCheckout();
+                resetCheckoutSessionId();
                 setCheckoutIdempotencyKey(createCheckoutIdempotencyKey());
                 toast.success(data.message);
                 router.push('/orders');
@@ -468,6 +483,8 @@ const OrderSummary = ({
 
         beginCheckoutTrackedRef.current = true;
         capture(POSTHOG_EVENTS.BEGIN_CHECKOUT, {
+            checkout_session_id: getOrCreateCheckoutSessionId(),
+            checkout_stage: 'begin_checkout',
             items_count: items.length,
             total_price: total,
         });
@@ -480,6 +497,8 @@ const OrderSummary = ({
 
         if (window.sessionStorage.getItem(LOGIN_PROMPT_STORAGE_KEY)) {
             capture(POSTHOG_EVENTS.LOGIN_COMPLETED, {
+                checkout_session_id: getOrCreateCheckoutSessionId(),
+                checkout_stage: 'login_completed',
                 trigger: 'checkout_prompt',
                 total_price: total,
             });
@@ -581,6 +600,8 @@ const OrderSummary = ({
                                 className='flex items-center gap-1 text-slate-600 mt-2 transition hover:text-slate-900'
                                 onClick={() => {
                                     capture(POSTHOG_EVENTS.ADDRESS_STARTED, {
+                                        checkout_session_id: getOrCreateCheckoutSessionId(),
+                                        checkout_stage: 'address_started',
                                         is_logged_in: Boolean(user),
                                         source: 'checkout_summary',
                                     });
