@@ -19,6 +19,5 @@ export default function robots() {
       },
     ],
     sitemap: absoluteUrl("/sitemap.xml"),
-    host: new URL(getBaseUrl()).host,
   };
 }
