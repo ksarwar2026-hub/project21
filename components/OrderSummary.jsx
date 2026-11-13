@@ -19,6 +19,32 @@ const CHECKOUT_STORAGE_KEY = 'ksarwar.checkout.v1';
 const LOGIN_PROMPT_STORAGE_KEY = 'ksarwar.checkout.loginPromptShown';
 const ADDRESS_FIELDS = ['name', 'email', 'street', 'city', 'state', 'zip', 'country', 'phone'];
 
+function normalizeIndiaPhoneForDisplay(value) {
+    const rawValue = String(value || '').trim();
+    const digits = rawValue.replace(/\D/g, '');
+
+    if (/^[6-9]\d{9}$/.test(digits)) {
+        return digits;
+    }
+
+    if (
+        rawValue.startsWith('+') &&
+        digits.length === 12 &&
+        digits.startsWith('91') &&
+        /^[6-9]\d{9}$/.test(digits.slice(2))
+    ) {
+        return digits.slice(2);
+    }
+
+    return rawValue;
+}
+
+function normalizeCountryForDisplay(value) {
+    const country = String(value || '').trim();
+
+    return /^(in|india)$/i.test(country) ? 'IN' : country;
+}
+
 function createCheckoutIdempotencyKey() {
     const id =
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -34,7 +60,13 @@ function sanitizeAddress(address) {
     }
 
     const sanitized = ADDRESS_FIELDS.reduce((acc, field) => {
-        acc[field] = String(address[field] || '').trim();
+        if (field === 'phone') {
+            acc[field] = normalizeIndiaPhoneForDisplay(address[field]);
+        } else if (field === 'country') {
+            acc[field] = normalizeCountryForDisplay(address[field]);
+        } else {
+            acc[field] = String(address[field] || '').trim();
+        }
         return acc;
     }, {});
 
@@ -167,7 +199,10 @@ const OrderSummary = ({
             return null;
         }
 
-        const accountReadyAddress = mergeUserProfileIntoAddress(sanitizedAddress, user);
+        const accountReadyAddress = {
+            ...mergeUserProfileIntoAddress(sanitizedAddress, user),
+            country: 'IN',
+        };
         const matchingAddress = addressList.find((address) => addressesMatch(address, accountReadyAddress));
 
         if (matchingAddress) {
@@ -213,7 +248,10 @@ const OrderSummary = ({
 
         try {
             setIsSavingAddress(true);
-            const accountReadyAddress = mergeUserProfileIntoAddress(sanitizedAddress, user);
+            const accountReadyAddress = {
+                ...mergeUserProfileIntoAddress(sanitizedAddress, user),
+                country: 'IN',
+            };
             const matchingAddress = addressList.find((address) => addressesMatch(address, accountReadyAddress));
 
             if (matchingAddress) {
@@ -516,7 +554,10 @@ const OrderSummary = ({
             return;
         }
 
-        const accountReadyAddress = mergeUserProfileIntoAddress(sanitizedAddress, user);
+        const accountReadyAddress = {
+            ...mergeUserProfileIntoAddress(sanitizedAddress, user),
+            country: 'IN',
+        };
         setSelectedAddress({ ...accountReadyAddress, id: GUEST_ADDRESS_ID });
         persistPendingCheckout(accountReadyAddress);
 
