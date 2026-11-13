@@ -23,6 +23,7 @@ model User {
   store       Store?
   buyerOrders Order[]   @relation("BuyerRelation")
   checkoutIdempotencies CheckoutIdempotency[]
+  whatsappNotifications WhatsAppNotification[]
 }
 
 // Required for creating a Product: name, description, mrp, price, images, category, storeId
@@ -101,6 +102,7 @@ enum OrderStatus {
   ORDER_PLACED
   PROCESSING
   SHIPPED
+  OUT_FOR_DELIVERY
   DELIVERED
 }
 
@@ -113,6 +115,29 @@ enum PaymentMethod {
 enum CouponDiscountType {
   PERCENTAGE
   FIXED
+}
+
+enum WhatsAppMessageType {
+  TEXT
+  TEMPLATE
+}
+
+enum WhatsAppNotificationType {
+  ORDER_CONFIRMATION
+  PAYMENT_CONFIRMATION
+  ORDER_SHIPPED
+  ORDER_OUT_FOR_DELIVERY
+  ORDER_DELIVERED
+  CUSTOMER_NOTIFICATION
+}
+
+enum WhatsAppNotificationStatus {
+  PENDING
+  PROCESSING
+  SENT
+  DELIVERED
+  READ
+  FAILED
 }
 
 model CheckoutIdempotency {
@@ -146,11 +171,52 @@ model Order {
   isCouponUsed      Boolean       @default(false)
   coupon            Json          @default("{}")
   orderItems        OrderItem[]
+  whatsappNotifications WhatsAppNotification[]
 
   // Relations
   user    User    @relation("BuyerRelation", fields: [userId], references: [id])
   store   Store   @relation(fields: [storeId], references: [id])
   address Address @relation(fields: [addressId], references: [id])
+}
+
+model WhatsAppNotification {
+  id                    String                       @id @default(cuid())
+  userId                String?
+  orderId               String?
+  notificationType      WhatsAppNotificationType
+  messageType           WhatsAppMessageType
+  status                WhatsAppNotificationStatus   @default(PENDING)
+
+  recipientPhone        String
+
+  textBody              String?
+  templateName          String?
+  templateLanguageCode  String?
+  templateParameters    Json?
+
+  metaMessageId         String?                      @unique
+
+  idempotencyKey        String                       @unique
+
+  retryCount            Int                          @default(0)
+  errorCode             String?
+  errorMessage          String?
+
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+
+  lastAttemptAt         DateTime?
+  nextAttemptAt         DateTime?
+  sentAt                DateTime?
+  deliveredAt           DateTime?
+  readAt                DateTime?
+
+  user                  User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order                 Order?                       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextAttemptAt])
+  @@index([orderId, notificationType])
+  @@index([userId, createdAt])
 }
 
 // Required for creating an OrderItem: orderId, productId, quantity, price

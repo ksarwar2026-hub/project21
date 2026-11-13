@@ -15,6 +15,7 @@ import {
   sendMetaCapiEvents,
   toBrowserMetaEvents,
 } from "@/lib/meta/server";
+import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp/orderConfirmation";
 
 const CHECKOUT_AUTH_REQUIRED = {
   code: "AUTH_REQUIRED",
@@ -303,6 +304,14 @@ export async function POST(request) {
         },
       });
     }
+
+    await sendOrderConfirmationWhatsApp({
+      orderIds,
+      user,
+      address,
+      totalAmount: responsePayload.totalAmount,
+      paymentMethod,
+    });
 
     await captureServerEvents(analyticsEvents);
     await sendMetaCapiEvents(metaPurchaseEvents, { request });

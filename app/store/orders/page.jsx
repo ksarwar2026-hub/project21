@@ -104,6 +104,7 @@ export default function StoreOrders() {
                                             <option value="ORDER_PLACED">ORDER_PLACED</option>
                                             <option value="PROCESSING">PROCESSING</option>
                                             <option value="SHIPPED">SHIPPED</option>
+                                            <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
                                             <option value="DELIVERED">DELIVERED</option>
                                         </select>
                                     </td>
